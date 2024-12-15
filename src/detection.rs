@@ -53,8 +53,16 @@ impl DarknetModel {
             imgcodecs::IMREAD_COLOR,
         )?;
         let (height, width) = (image.rows() as f32, image.cols() as f32);
+        let input_blob = dnn::blob_from_image(
+            &image,
+            YOLO_CONFIG.scale_factor,
+            Size::new(YOLO_CONFIG.input_size, YOLO_CONFIG.input_size),
+            Scalar::new(0.0, 0.0, 0.0, 0.0),
+            true,
+            false,
+            CV_32F,
+        )?;
 
-        let input_blob = self.prepare_input_blob(&image)?;
         self.net
             .set_input(&input_blob, "", 1.0, Scalar::default())?;
 
@@ -65,18 +73,6 @@ impl DarknetModel {
             .unzip();
 
         self.apply_nms(boxes, confidences)
-    }
-
-    fn prepare_input_blob(&self, image: &Mat) -> opencv::Result<Mat> {
-        dnn::blob_from_image(
-            image,
-            YOLO_CONFIG.scale_factor,
-            Size::new(YOLO_CONFIG.input_size, YOLO_CONFIG.input_size),
-            Scalar::new(0.0, 0.0, 0.0, 0.0),
-            true,
-            false,
-            CV_32F,
-        )
     }
 
     fn process_network_output(

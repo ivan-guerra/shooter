@@ -177,3 +177,150 @@ impl DarknetModel {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // Helper function to create a test model instance
+    fn create_test_model() -> DarknetModel {
+        let model_cfg = PathBuf::from("models/yolov4-tiny.cfg");
+        let model_weights = PathBuf::from("models/yolov4-tiny.weights");
+        DarknetModel::new(&model_cfg, &model_weights).unwrap()
+    }
+
+    #[test]
+    fn darknetmodel_new_valid_paths() {
+        let model_cfg = PathBuf::from("models/yolov4-tiny.cfg");
+        let model_weights = PathBuf::from("models/yolov4-tiny.weights");
+
+        let result = DarknetModel::new(&model_cfg, &model_weights);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn darknetmodel_new_invalid_paths() {
+        let model_cfg = PathBuf::from("nonexistent.cfg");
+        let model_weights = PathBuf::from("nonexistent.weights");
+
+        let result = DarknetModel::new(&model_cfg, &model_weights);
+        assert!(result.is_err());
+    }
+
+    mod calculate_bbox_tests {
+        use super::*;
+
+        #[test]
+        fn center_box() {
+            let model = create_test_model();
+            let data = vec![0.5, 0.5, 0.2, 0.2];
+            let (width, height) = (100.0, 100.0);
+
+            let bbox = model.calculate_bbox(&data, width, height);
+
+            assert_eq!(bbox.x, 40);
+            assert_eq!(bbox.y, 40);
+            assert_eq!(bbox.width, 20);
+            assert_eq!(bbox.height, 20);
+        }
+
+        #[test]
+        fn corner_box() {
+            let model = create_test_model();
+            let data = vec![0.1, 0.1, 0.2, 0.2];
+            let (width, height) = (100.0, 100.0);
+
+            let bbox = model.calculate_bbox(&data, width, height);
+
+            assert_eq!(bbox.x, 0);
+            assert_eq!(bbox.y, 0);
+            assert_eq!(bbox.width, 20);
+            assert_eq!(bbox.height, 20);
+        }
+
+        #[test]
+        fn edge_box() {
+            let model = create_test_model();
+            let data = vec![0.9, 0.9, 0.2, 0.2];
+            let (width, height) = (100.0, 100.0);
+
+            let bbox = model.calculate_bbox(&data, width, height);
+
+            assert_eq!(bbox.x, 80);
+            assert_eq!(bbox.y, 80);
+            assert_eq!(bbox.width, 20);
+            assert_eq!(bbox.height, 20);
+        }
+    }
+
+    mod apply_nms_tests {
+        use super::*;
+
+        #[test]
+        fn no_overlapping_boxes() {
+            let model = create_test_model();
+            let boxes = vec![
+                Rect::new(0, 0, 10, 10),
+                Rect::new(20, 20, 10, 10),
+                Rect::new(40, 40, 10, 10),
+            ];
+            let confidences = vec![0.9, 0.8, 0.7];
+
+            let result = model.apply_nms(boxes.clone(), confidences).unwrap();
+
+            assert_eq!(result.len(), 3);
+            assert!(result.contains(&boxes[0]));
+            assert!(result.contains(&boxes[1]));
+            assert!(result.contains(&boxes[2]));
+        }
+
+        #[test]
+        fn overlapping_boxes() {
+            let model = create_test_model();
+            let boxes = vec![
+                Rect::new(0, 0, 20, 20),
+                Rect::new(19, 19, 20, 20),
+                Rect::new(40, 40, 20, 20),
+            ];
+            let confidences = vec![0.9, 0.7, 0.8];
+
+            let result = model.apply_nms(boxes.clone(), confidences).unwrap();
+
+            assert_eq!(result.len(), 3);
+            assert!(result.contains(&boxes[0]));
+            assert!(result.contains(&boxes[1]));
+            assert!(result.contains(&boxes[2]));
+        }
+
+        #[test]
+        fn low_confidence() {
+            let model = create_test_model();
+            let boxes = vec![Rect::new(0, 0, 10, 10), Rect::new(20, 20, 10, 10)];
+            let confidences = vec![0.3, 0.2];
+
+            let result = model.apply_nms(boxes, confidences).unwrap();
+
+            assert_eq!(result.len(), 0);
+        }
+
+        #[test]
+        fn empty_input() {
+            let model = create_test_model();
+            let result = model.apply_nms(vec![], vec![]).unwrap();
+            assert_eq!(result.len(), 0);
+        }
+
+        #[test]
+        fn single_box() {
+            let model = create_test_model();
+            let boxes = vec![Rect::new(0, 0, 10, 10)];
+            let confidences = vec![0.9];
+
+            let result = model.apply_nms(boxes.clone(), confidences).unwrap();
+
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0], boxes[0]);
+        }
+    }
+}

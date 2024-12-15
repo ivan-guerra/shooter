@@ -1,0 +1,11 @@
+[package]
+name = "shooter"
+version = "0.1.0"
+edition = "2021"
+description = "Human detection and shooting"
+license = "Unlicense"
+
+[dependencies]
+opencv = "0.93.5"
+image = "0.25.5"
+clap = {version = "4.5.23", features = ["derive"]}

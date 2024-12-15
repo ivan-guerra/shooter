@@ -1,3 +1,9 @@
+//! Human detection module using YOLO object detection
+//!
+//! This module provides functionality for detecting humans in images using
+//! the YOLO (You Only Look Once) deep learning model. It includes capabilities
+//! for loading Darknet models, processing images, and drawing bounding boxes
+//! around detected humans.
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
     dnn::{self},
@@ -5,8 +11,29 @@ use opencv::{
     prelude::*,
 };
 
+/// Represents a Darknet model for object detection
+///
+/// This struct encapsulates a DNN (Deep Neural Network) model loaded from Darknet format
 pub struct DarknetModel {
     net: dnn::Net,
+}
+
+/// Configuration struct for YOLO object detection parameters
+struct YoloConfig {
+    /// Input size (width and height) for the neural network in pixels
+    input_size: i32,
+    /// Scale factor for normalizing pixel values (typically 1/255)
+    scale_factor: f64,
+    /// Minimum confidence threshold for object detection
+    confidence_threshold: f32,
+    /// Confidence threshold used in non-maximum suppression
+    nms_confidence_threshold: f32,
+    /// Intersection over Union (IoU) threshold for non-maximum suppression
+    nms_threshold: f32,
+    /// Minimum score threshold for keeping detections
+    score_threshold: f32,
+    /// Maximum number of detections to return (0 means no limit)
+    top_k: i32,
 }
 
 const YOLO_CONFIG: YoloConfig = YoloConfig {
@@ -19,17 +46,17 @@ const YOLO_CONFIG: YoloConfig = YoloConfig {
     top_k: 0,
 };
 
-struct YoloConfig {
-    input_size: i32,
-    scale_factor: f64,
-    confidence_threshold: f32,
-    nms_confidence_threshold: f32,
-    nms_threshold: f32,
-    score_threshold: f32,
-    top_k: i32,
-}
-
 impl DarknetModel {
+    /// Creates a new DarknetModel instance from model configuration and weights files
+    ///
+    /// # Arguments
+    ///
+    /// * `model_cfg` - Path to the Darknet model configuration file
+    /// * `model_weights` - Path to the Darknet model weights file
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self, opencv::Error>` - A new DarknetModel instance or an OpenCV error
     pub fn new(
         model_cfg: &std::path::Path,
         model_weights: &std::path::Path,
@@ -44,6 +71,16 @@ impl DarknetModel {
         Ok(Self { net })
     }
 
+    /// Detects humans in the given image using the YOLO model
+    ///
+    /// # Arguments
+    ///
+    /// * `image` - Path to the input image file
+    ///
+    /// # Returns
+    ///
+    /// * `opencv::Result<Vec<opencv::core::Rect>>` - Vector of bounding boxes for detected humans
+    ///                                               or an OpenCV error
     pub fn find_humans(
         &mut self,
         image: &std::path::Path,
@@ -75,6 +112,19 @@ impl DarknetModel {
         self.apply_nms(boxes, confidences)
     }
 
+    /// Processes the neural network output to extract human detections
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Original image width
+    /// * `height` - Original image height
+    ///
+    /// # Returns
+    ///
+    /// * `opencv::Result<Vec<(Rect, f32, i32)>>` - Vector of tuples containing:
+    ///   - Bounding box rectangle
+    ///   - Confidence score
+    ///   - Class ID (0 for person)
     fn process_network_output(
         &mut self,
         width: f32,
@@ -118,6 +168,18 @@ impl DarknetModel {
         Ok(detections)
     }
 
+    /// Calculates the bounding box coordinates from YOLO detection data
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - Slice of detection data containing normalized coordinates
+    /// * `width` - Original image width
+    /// * `height` - Original image height
+    ///
+    /// # Returns
+    ///
+    /// * `Rect` - OpenCV rectangle representing the bounding box with coordinates
+    ///           adjusted to the original image dimensions
     fn calculate_bbox(&self, data: &[f32], width: f32, height: f32) -> Rect {
         let center_x = data[0] * width;
         let center_y = data[1] * height;
@@ -132,6 +194,17 @@ impl DarknetModel {
         )
     }
 
+    /// Applies Non-Maximum Suppression (NMS) to filter overlapping bounding boxes
+    ///
+    /// # Arguments
+    ///
+    /// * `boxes` - Vector of bounding box rectangles
+    /// * `confidences` - Vector of confidence scores corresponding to each box
+    ///
+    /// # Returns
+    ///
+    /// * `opencv::Result<Vec<Rect>>` - Filtered vector of bounding boxes after NMS
+    ///                                 or an OpenCV error
     fn apply_nms(&self, boxes: Vec<Rect>, confidences: Vec<f32>) -> opencv::Result<Vec<Rect>> {
         let mut indices = Vector::new();
         dnn::nms_boxes(
@@ -147,6 +220,17 @@ impl DarknetModel {
         Ok(indices.iter().map(|idx| boxes[idx as usize]).collect())
     }
 
+    /// Draws bounding boxes on an input image and saves the result
+    ///
+    /// # Arguments
+    ///
+    /// * `input_image` - Path to the source image file
+    /// * `output_image` - Path where the annotated image will be saved
+    /// * `boxes` - Slice of rectangles representing the bounding boxes to draw
+    ///
+    /// # Returns
+    ///
+    /// * `opencv::Result<()>` - Success status or an OpenCV error
     pub fn draw_bounding_boxes(
         &self,
         input_image: &std::path::Path,

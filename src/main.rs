@@ -1,6 +1,6 @@
 use clap::Parser;
 
-mod detection;
+pub mod detection;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

@@ -7,7 +7,7 @@
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
     dnn::{self},
-    imgcodecs, imgproc,
+    imgproc,
     prelude::*,
 };
 
@@ -71,24 +71,19 @@ impl DarknetModel {
         Ok(Self { net })
     }
 
-    /// Detects humans in the given image using the YOLO model
+    /// Detects humans in the provided image using a YOLO neural network.
     ///
     /// # Arguments
     ///
-    /// * `image` - Path to the input image file
+    /// * `image` - Input image as OpenCV Mat
     ///
     /// # Returns
     ///
-    /// * `opencv::Result<Vec<opencv::core::Rect>>` - Vector of bounding boxes for detected humans
-    ///                                               or an OpenCV error
+    /// * `opencv::Result<Vec<opencv::core::Rect>>` - Vector of bounding boxes around detected humans
     pub fn find_humans(
         &mut self,
-        image: &std::path::Path,
+        image: &opencv::core::Mat,
     ) -> opencv::Result<Vec<opencv::core::Rect>> {
-        let image = imgcodecs::imread(
-            image.to_str().expect("Invalid image path"),
-            imgcodecs::IMREAD_COLOR,
-        )?;
         let (height, width) = (image.rows() as f32, image.cols() as f32);
         let input_blob = dnn::blob_from_image(
             &image,
@@ -220,44 +215,32 @@ impl DarknetModel {
         Ok(indices.iter().map(|idx| boxes[idx as usize]).collect())
     }
 
-    /// Draws bounding boxes on an input image and saves the result
+    /// Draws bounding boxes on the input image
     ///
     /// # Arguments
     ///
-    /// * `input_image` - Path to the source image file
-    /// * `output_image` - Path where the annotated image will be saved
-    /// * `boxes` - Slice of rectangles representing the bounding boxes to draw
+    /// * `input_image` - The image to draw bounding boxes on
+    /// * `boxes` - A slice of rectangles representing the bounding boxes to draw
     ///
     /// # Returns
     ///
-    /// * `opencv::Result<()>` - Success status or an OpenCV error
+    /// * `Result<(), opencv::Error>` - Ok if successful, Err otherwise
     pub fn draw_bounding_boxes(
         &self,
-        input_image: &std::path::Path,
-        output_image: &std::path::Path,
+        input_image: &mut opencv::core::Mat,
         boxes: &[opencv::core::Rect],
-    ) -> opencv::Result<()> {
-        let mut image = imgcodecs::imread(
-            input_image.to_str().expect("Invalid input image path"),
-            imgcodecs::IMREAD_COLOR,
-        )?;
-
+    ) -> Result<(), opencv::Error> {
         for bbox in boxes {
             imgproc::rectangle(
-                &mut image,
+                input_image,
                 *bbox,
                 Scalar::new(0.0, 255.0, 0.0, 0.0),
                 2,
-                imgproc::LINE_8,
+                8,
                 0,
             )?;
         }
 
-        imgcodecs::imwrite(
-            output_image.to_str().expect("Invalid output image path"),
-            &image,
-            &Vector::new(),
-        )?;
         Ok(())
     }
 }

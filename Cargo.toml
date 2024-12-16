@@ -8,4 +8,5 @@ license = "Unlicense"
 [dependencies]
 opencv = "0.93.5"
 image = "0.25.5"
+minifb = "0.27.0"
 clap = {version = "4.5.23", features = ["derive"]}

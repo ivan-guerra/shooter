@@ -4,8 +4,8 @@
 //! * Video capture and playback from files or streams
 //! * Real-time frame processing and display
 //! * Human detection using YOLOv4-tiny model
-use crate::config::{Camera, ShooterConfig};
-use crate::detection::{self, DarknetModel};
+use crate::config::ShooterConfig;
+use crate::detection::DarknetModel;
 use crate::targeting;
 use minifb::{Key, Window, WindowOptions};
 use opencv::{
@@ -23,17 +23,15 @@ use opencv::{
 /// * `height` - Height of the video frame in pixels
 pub struct VideoPlayer {
     dev: videoio::VideoCapture,
-    cam_settings: Camera,
+    configs: ShooterConfig,
     width: usize,
     height: usize,
 }
 
 impl VideoPlayer {
-    pub fn new(shooter_conf: &ShooterConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        let dev = videoio::VideoCapture::from_file(
-            shooter_conf.camera.stream_url.as_str(),
-            videoio::CAP_ANY,
-        )?;
+    pub fn new(configs: &ShooterConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        let dev =
+            videoio::VideoCapture::from_file(configs.camera.stream_url.as_str(), videoio::CAP_ANY)?;
         if !dev.is_opened()? {
             return Err("unable to open video stream".into());
         }
@@ -43,7 +41,7 @@ impl VideoPlayer {
 
         Ok(Self {
             dev,
-            cam_settings: shooter_conf.camera.clone(),
+            configs: configs.clone(),
             width,
             height,
         })
@@ -161,10 +159,7 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
     )?;
     let mut frame = Mat::default();
     let mut buffer: Vec<u32> = vec![0; player.width * player.height]; // Buffer for minifb (u32 RGBA)
-    let mut model = DarknetModel::new(
-        std::path::Path::new("models/yolov4-tiny.cfg"),
-        std::path::Path::new("models/yolov4-tiny.weights"),
-    )?;
+    let mut model = DarknetModel::new(&player.configs.yolo)?;
     let text_pos = opencv::core::Point::new(10, 20);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
@@ -175,10 +170,10 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
                 let target_pos = targeting::get_target_position(
                     b,
                     (
-                        detection::YOLO_CONFIG.input_size,
-                        detection::YOLO_CONFIG.input_size,
+                        player.configs.yolo.input_size,
+                        player.configs.yolo.input_size,
                     ),
-                    &player.cam_settings,
+                    &player.configs.camera,
                 );
                 draw_text(
                     &mut frame,

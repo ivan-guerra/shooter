@@ -1,6 +1,33 @@
+# Camera configuration settings
 [camera]
+# HTTP stream URL for MJPEG video feed
 stream_url = "http://localhost:56000/mjpeg"
+# Horizontal field of view angle in degrees
 horizontal_fov = 110.0
+# Vertical field of view angle in degrees
 vertical_fov = 110.0
+# Horizontal offset angle in degrees (azimuth adjustment)
 azimuth_offset = 0.0
+# Vertical offset angle in degrees (elevation adjustment)
 elevation_offset = 0.0
+
+# YOLO object detection model configuration
+[yolo]
+# Path to the YOLO model configuration file
+model_cfg = "models/yolov4-tiny.cfg"
+# Path to the pre-trained YOLO model weights file
+model_weights = "models/yolov4-tiny.weights"
+# Input image size for the YOLO model (in pixels)
+input_size = 416
+# Scale factor for normalizing input pixel values (1/255)
+scale_factor = 0.00392156862745098
+# Minimum confidence threshold for object detection
+confidence_threshold = 0.5
+# Confidence threshold for non-maximum suppression
+nms_confidence_threshold = 0.5
+# IoU threshold for non-maximum suppression
+nms_threshold = 0.4
+# Minimum score threshold for keeping detections
+score_threshold = 1.0
+# Maximum number of detections to keep (0 = no limit)
+top_k = 1

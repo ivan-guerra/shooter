@@ -5,38 +5,11 @@
 //!
 //! - `YoloConfig`: Configuration parameters for YOLO detection
 //! - `DarknetModel`: A wrapper around OpenCV's DNN implementation for Darknet models
+use crate::config::Yolo;
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
     dnn::{self},
     prelude::*,
-};
-
-/// Configuration struct for YOLO object detection parameters
-pub struct YoloConfig {
-    /// Input size (width and height) for the neural network in pixels
-    pub input_size: i32,
-    /// Scale factor for normalizing pixel values (typically 1/255)
-    pub scale_factor: f64,
-    /// Minimum confidence threshold for object detection
-    pub confidence_threshold: f32,
-    /// Confidence threshold used in non-maximum suppression
-    pub nms_confidence_threshold: f32,
-    /// Intersection over Union (IoU) threshold for non-maximum suppression
-    pub nms_threshold: f32,
-    /// Minimum score threshold for keeping detections
-    pub score_threshold: f32,
-    /// Maximum number of detections to return (0 means no limit)
-    pub top_k: i32,
-}
-
-pub const YOLO_CONFIG: YoloConfig = YoloConfig {
-    input_size: 416,
-    scale_factor: 1.0 / 255.0,
-    confidence_threshold: 0.5,
-    nms_confidence_threshold: 0.5,
-    nms_threshold: 0.4,
-    score_threshold: 1.0,
-    top_k: 0,
 };
 
 /// Represents a Darknet model for object detection
@@ -44,6 +17,7 @@ pub const YOLO_CONFIG: YoloConfig = YoloConfig {
 /// This struct encapsulates a DNN (Deep Neural Network) model loaded from Darknet format
 pub struct DarknetModel {
     net: dnn::Net,
+    yolo_conf: Yolo,
 }
 
 impl DarknetModel {
@@ -57,18 +31,24 @@ impl DarknetModel {
     /// # Returns
     ///
     /// * `Result<Self, opencv::Error>` - A new DarknetModel instance or an OpenCV error
-    pub fn new(
-        model_cfg: &std::path::Path,
-        model_weights: &std::path::Path,
-    ) -> Result<Self, opencv::Error> {
+    pub fn new(yolo_conf: &Yolo) -> Result<Self, opencv::Error> {
         let mut net = dnn::read_net_from_darknet(
-            model_cfg.to_str().expect("Invalid model config path"),
-            model_weights.to_str().expect("Invalid model weights path"),
+            yolo_conf
+                .model_cfg
+                .to_str()
+                .expect("Invalid model config path"),
+            yolo_conf
+                .model_weights
+                .to_str()
+                .expect("Invalid model weights path"),
         )?;
         net.set_preferable_backend(dnn::DNN_BACKEND_DEFAULT)?;
         net.set_preferable_target(dnn::DNN_TARGET_CPU)?;
 
-        Ok(Self { net })
+        Ok(Self {
+            net,
+            yolo_conf: yolo_conf.clone(),
+        })
     }
 
     /// Detects humans in the provided image using a YOLO neural network.
@@ -87,8 +67,8 @@ impl DarknetModel {
         let (height, width) = (image.rows() as f32, image.cols() as f32);
         let input_blob = dnn::blob_from_image(
             &image,
-            YOLO_CONFIG.scale_factor,
-            Size::new(YOLO_CONFIG.input_size, YOLO_CONFIG.input_size),
+            self.yolo_conf.scale_factor,
+            Size::new(self.yolo_conf.input_size, self.yolo_conf.input_size),
             Scalar::new(0.0, 0.0, 0.0, 0.0),
             true,
             false,
@@ -143,7 +123,7 @@ impl DarknetModel {
                     .max_by(|a, b| a.partial_cmp(b).unwrap())
                     .unwrap_or(&0.0);
 
-                if confidence > YOLO_CONFIG.confidence_threshold {
+                if confidence > self.yolo_conf.confidence_threshold {
                     let class_id = confidence_range
                         .iter()
                         .enumerate()
@@ -205,11 +185,11 @@ impl DarknetModel {
         dnn::nms_boxes(
             &Vector::from(boxes.clone()),
             &Vector::from(confidences),
-            YOLO_CONFIG.nms_confidence_threshold,
-            YOLO_CONFIG.nms_threshold,
+            self.yolo_conf.nms_confidence_threshold,
+            self.yolo_conf.nms_threshold,
             &mut indices,
-            YOLO_CONFIG.score_threshold,
-            YOLO_CONFIG.top_k,
+            self.yolo_conf.score_threshold,
+            self.yolo_conf.top_k,
         )?;
 
         Ok(indices.iter().map(|idx| boxes[idx as usize]).collect())
@@ -223,26 +203,26 @@ mod tests {
 
     // Helper function to create a test model instance
     fn create_test_model() -> DarknetModel {
-        let model_cfg = PathBuf::from("models/yolov4-tiny.cfg");
-        let model_weights = PathBuf::from("models/yolov4-tiny.weights");
-        DarknetModel::new(&model_cfg, &model_weights).unwrap()
+        let yolo_conf = Yolo::default();
+        DarknetModel::new(&yolo_conf).unwrap()
     }
 
     #[test]
     fn darknetmodel_new_valid_paths() {
-        let model_cfg = PathBuf::from("models/yolov4-tiny.cfg");
-        let model_weights = PathBuf::from("models/yolov4-tiny.weights");
-
-        let result = DarknetModel::new(&model_cfg, &model_weights);
+        let yolo_conf = Yolo::default();
+        let result = DarknetModel::new(&yolo_conf);
         assert!(result.is_ok());
     }
 
     #[test]
     fn darknetmodel_new_invalid_paths() {
-        let model_cfg = PathBuf::from("nonexistent.cfg");
-        let model_weights = PathBuf::from("nonexistent.weights");
+        let yolo_conf = Yolo {
+            model_cfg: PathBuf::from("nonexistent.cfg"),
+            model_weights: PathBuf::from("nonexistent.weights"),
+            ..Default::default()
+        };
 
-        let result = DarknetModel::new(&model_cfg, &model_weights);
+        let result = DarknetModel::new(&yolo_conf);
         assert!(result.is_err());
     }
 

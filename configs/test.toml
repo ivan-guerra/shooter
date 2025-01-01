@@ -1,0 +1,6 @@
+[camera]
+stream_url = "http://localhost:56000/mjpeg"
+horizontal_fov = 110.0
+vertical_fov = 110.0
+azimuth_offset = 0.0
+elevation_offset = 0.0

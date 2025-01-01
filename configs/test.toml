@@ -1,11 +1,14 @@
 # Camera configuration settings
+# These settings are for NEXIGO N60 Webcam with a factor configuration
+# https://drive.google.com/file/d/10IgEGNXSWZNjBNJv240IYPmdfYQsQpE6/view
 [camera]
 # HTTP stream URL for MJPEG video feed
+# https://github.com/gen2brain/cam2ip
 stream_url = "http://localhost:56000/mjpeg"
 # Horizontal field of view angle in degrees
-horizontal_fov = 110.0
+horizontal_fov = 89.0
 # Vertical field of view angle in degrees
-vertical_fov = 110.0
+vertical_fov = 48.0
 # Horizontal offset angle in degrees (azimuth adjustment)
 azimuth_offset = 0.0
 # Vertical offset angle in degrees (elevation adjustment)

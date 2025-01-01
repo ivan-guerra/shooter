@@ -1,10 +1,7 @@
-//! Object detection functionality using YOLO neural networks.
+//! Human detection module using YOLOv4-tiny neural network.
 //!
-//! This module provides implementations for human detection using YOLO (You Only Look Once)
-//! deep learning models through OpenCV's DNN module. It includes:
-//!
-//! - `YoloConfig`: Configuration parameters for YOLO detection
-//! - `DarknetModel`: A wrapper around OpenCV's DNN implementation for Darknet models
+//! This module provides functionality for detecting humans in images using
+//! OpenCV's DNN module with a pre-trained YOLOv4-tiny model. It includes:
 use crate::config::Yolo;
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
@@ -12,25 +9,16 @@ use opencv::{
     prelude::*,
 };
 
-/// Represents a Darknet model for object detection
-///
-/// This struct encapsulates a DNN (Deep Neural Network) model loaded from Darknet format
+/// A wrapper struct for the YOLOv4-tiny neural network model using OpenCV's DNN module.
 pub struct DarknetModel {
+    /// The loaded neural network model
     net: dnn::Net,
+    /// Configuration settings for YOLO object detection
     yolo_conf: Yolo,
 }
 
 impl DarknetModel {
-    /// Creates a new DarknetModel instance from model configuration and weights files
-    ///
-    /// # Arguments
-    ///
-    /// * `model_cfg` - Path to the Darknet model configuration file
-    /// * `model_weights` - Path to the Darknet model weights file
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self, opencv::Error>` - A new DarknetModel instance or an OpenCV error
+    /// Creates a new DarknetModel instance with the specified YOLO configuration.
     pub fn new(yolo_conf: &Yolo) -> Result<Self, opencv::Error> {
         let mut net = dnn::read_net_from_darknet(
             yolo_conf
@@ -51,15 +39,15 @@ impl DarknetModel {
         })
     }
 
-    /// Detects humans in the provided image using a YOLO neural network.
+    /// Detects humans in the input image using YOLOv4-tiny model.
     ///
     /// # Arguments
     ///
-    /// * `image` - Input image as OpenCV Mat
+    /// * `image` - Reference to an OpenCV Mat containing the input image
     ///
     /// # Returns
     ///
-    /// * `opencv::Result<Vec<opencv::core::Rect>>` - Vector of bounding boxes around detected humans
+    /// * `opencv::Result<Vec<opencv::core::Rect>>` - Vector of bounding boxes for detected humans
     pub fn find_humans(
         &mut self,
         image: &opencv::core::Mat,

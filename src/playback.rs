@@ -1,9 +1,10 @@
-//! Video playback and processing module
+//! Video playback and processing module for the shooter system.
 //!
 //! This module provides functionality for:
-//! * Video capture and playback from files or streams
-//! * Real-time frame processing and display
-//! * Human detection using YOLOv4-tiny model
+//! - Reading and displaying video streams
+//! - Processing frames for human detection using YOLOv4-tiny
+//! - Visual overlay of detection results including bounding boxes and targeting information
+//! - Real-time display using the minifb window system
 use crate::config::ShooterConfig;
 use crate::detection::DarknetModel;
 use crate::targeting;
@@ -15,16 +16,15 @@ use opencv::{
     videoio,
 };
 
-/// A structure for handling video playback operations
-///
-/// # Fields
-/// * `cam` - VideoCapture instance for accessing video frames
-/// * `width` - Width of the video frame in pixels
-/// * `height` - Height of the video frame in pixels
+/// A structure representing a video player that handles video playback and processing.
 pub struct VideoPlayer {
+    /// OpenCV video capture device for reading video frames
     dev: videoio::VideoCapture,
+    /// Configuration settings for the shooter system
     configs: ShooterConfig,
+    /// Width of the video frame in pixels
     width: usize,
+    /// Height of the video frame in pixels
     height: usize,
 }
 
@@ -49,23 +49,6 @@ impl VideoPlayer {
 }
 
 /// Converts an OpenCV Mat to a buffer compatible with minifb window
-///
-/// # Arguments
-///
-/// * `mat` - The source OpenCV Mat in RGB format
-/// * `buffer` - The destination buffer to store RGBA pixels
-/// * `width` - The expected width of the image
-/// * `height` - The expected height of the image
-///
-/// # Returns
-///
-/// * `Result<(), Box<dyn std::error::Error>>` - Ok if successful, Err if dimensions mismatch
-///
-/// # Errors
-///
-/// Returns an error if:
-/// * The Mat dimensions don't match the provided width and height
-/// * Failed to access Mat data bytes
 fn mat_to_minifb_buffer(
     mat: &Mat,
     buffer: &mut [u32],
@@ -88,6 +71,7 @@ fn mat_to_minifb_buffer(
     Ok(())
 }
 
+/// Draws green bounding boxes on the input image.
 fn draw_bounding_boxes(
     input_image: &mut opencv::core::Mat,
     boxes: &[opencv::core::Rect],
@@ -106,6 +90,7 @@ fn draw_bounding_boxes(
     Ok(())
 }
 
+/// Draws text on the input image at the specified position.
 fn draw_text(
     input_image: &mut opencv::core::Mat,
     text: &str,
@@ -126,6 +111,7 @@ fn draw_text(
     Ok(())
 }
 
+/// Draws a red dot (circle) on the input image at the specified point.
 fn draw_dot(
     input_image: &mut opencv::core::Mat,
     point: opencv::core::Point,
@@ -144,12 +130,6 @@ fn draw_dot(
 }
 
 /// Captures and processes video frames to detect humans using YOLOv4-tiny model
-///
-/// # Arguments
-/// * `player` - Mutable reference to a VideoPlayer instance that provides the video feed
-///
-/// # Returns
-/// * `Result<(), Box<dyn std::error::Error>>` - Ok(()) on successful execution, or an Error if something fails
 pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::new(
         "Shooter",
@@ -167,6 +147,7 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
             // Detect humans in the frame
             let boxes = model.find_humans(&frame)?;
             for b in &boxes {
+                // Calculate and display the azimuth and elevation angles
                 let target_pos = targeting::get_target_position(
                     b,
                     (
@@ -184,12 +165,14 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
                     text_pos,
                 )?;
 
+                // Draw a dot at the center of the bounding box
                 let box_center = targeting::get_center_of_rect(b);
                 draw_dot(
                     &mut frame,
                     opencv::core::Point::new(box_center.0, box_center.1),
                 )?;
             }
+            // Draw bounding boxes around detected humans
             draw_bounding_boxes(&mut frame, &boxes)?;
 
             // Convert to RGB format (OpenCV uses BGR by default)
@@ -203,6 +186,5 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
             window.update_with_buffer(&buffer, player.width, player.height)?;
         }
     }
-
     Ok(())
 }

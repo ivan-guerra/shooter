@@ -4,11 +4,16 @@
 //! * Video capture and playback from files or streams
 //! * Real-time frame processing and display
 //! * Human detection using YOLOv4-tiny model
-use crate::detection::DarknetModel;
+use crate::config::{Camera, ShooterConfig};
+use crate::detection::{self, DarknetModel};
+use crate::targeting;
 use minifb::{Key, Window, WindowOptions};
-use opencv::imgproc;
-use opencv::prelude::*;
-use opencv::videoio;
+use opencv::{
+    core::{Mat, Scalar},
+    imgproc,
+    prelude::*,
+    videoio,
+};
 
 /// A structure for handling video playback operations
 ///
@@ -17,22 +22,31 @@ use opencv::videoio;
 /// * `width` - Width of the video frame in pixels
 /// * `height` - Height of the video frame in pixels
 pub struct VideoPlayer {
-    cam: videoio::VideoCapture,
+    dev: videoio::VideoCapture,
+    cam_settings: Camera,
     width: usize,
     height: usize,
 }
 
 impl VideoPlayer {
-    pub fn new(video_stream_url: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let cam = videoio::VideoCapture::from_file(video_stream_url, videoio::CAP_ANY)?;
-        if !cam.is_opened()? {
+    pub fn new(shooter_conf: &ShooterConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        let dev = videoio::VideoCapture::from_file(
+            shooter_conf.camera.stream_url.as_str(),
+            videoio::CAP_ANY,
+        )?;
+        if !dev.is_opened()? {
             return Err("unable to open video stream".into());
         }
 
-        let width = cam.get(videoio::CAP_PROP_FRAME_WIDTH)? as usize;
-        let height = cam.get(videoio::CAP_PROP_FRAME_HEIGHT)? as usize;
+        let width = dev.get(videoio::CAP_PROP_FRAME_WIDTH)? as usize;
+        let height = dev.get(videoio::CAP_PROP_FRAME_HEIGHT)? as usize;
 
-        Ok(Self { cam, width, height })
+        Ok(Self {
+            dev,
+            cam_settings: shooter_conf.camera.clone(),
+            width,
+            height,
+        })
     }
 }
 
@@ -76,6 +90,61 @@ fn mat_to_minifb_buffer(
     Ok(())
 }
 
+fn draw_bounding_boxes(
+    input_image: &mut opencv::core::Mat,
+    boxes: &[opencv::core::Rect],
+) -> Result<(), opencv::Error> {
+    for bbox in boxes {
+        imgproc::rectangle(
+            input_image,
+            *bbox,
+            Scalar::new(0.0, 255.0, 0.0, 0.0),
+            2,
+            8,
+            0,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn draw_text(
+    input_image: &mut opencv::core::Mat,
+    text: &str,
+    position: opencv::core::Point,
+) -> Result<(), opencv::Error> {
+    imgproc::put_text(
+        input_image,
+        text,
+        position,
+        imgproc::FONT_HERSHEY_SIMPLEX,
+        0.5,
+        Scalar::new(0.0, 255.0, 0.0, 0.0),
+        1,
+        8,
+        false,
+    )?;
+
+    Ok(())
+}
+
+fn draw_dot(
+    input_image: &mut opencv::core::Mat,
+    point: opencv::core::Point,
+) -> Result<(), opencv::Error> {
+    imgproc::circle(
+        input_image,
+        point,
+        5,
+        Scalar::new(0.0, 0.0, 255.0, 0.0),
+        -1,
+        8,
+        0,
+    )?;
+
+    Ok(())
+}
+
 /// Captures and processes video frames to detect humans using YOLOv4-tiny model
 ///
 /// # Arguments
@@ -96,12 +165,37 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
         std::path::Path::new("models/yolov4-tiny.cfg"),
         std::path::Path::new("models/yolov4-tiny.weights"),
     )?;
+    let text_pos = opencv::core::Point::new(10, 20);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        if player.cam.read(&mut frame)? && !frame.empty() {
+        if player.dev.read(&mut frame)? && !frame.empty() {
             // Detect humans in the frame
             let boxes = model.find_humans(&frame)?;
-            model.draw_bounding_boxes(&mut frame, &boxes)?;
+            for b in &boxes {
+                let target_pos = targeting::get_target_position(
+                    b,
+                    (
+                        detection::YOLO_CONFIG.input_size,
+                        detection::YOLO_CONFIG.input_size,
+                    ),
+                    &player.cam_settings,
+                );
+                draw_text(
+                    &mut frame,
+                    &format!(
+                        "azimuth: {:.2} elevation: {:.2}",
+                        target_pos.azimuth, target_pos.elevation
+                    ),
+                    text_pos,
+                )?;
+
+                let box_center = targeting::get_center_of_rect(b);
+                draw_dot(
+                    &mut frame,
+                    opencv::core::Point::new(box_center.0, box_center.1),
+                )?;
+            }
+            draw_bounding_boxes(&mut frame, &boxes)?;
 
             // Convert to RGB format (OpenCV uses BGR by default)
             let mut rgb_frame = Mat::default();

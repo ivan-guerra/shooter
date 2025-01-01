@@ -1,42 +1,35 @@
-//! Human detection module using YOLO object detection
+//! Object detection functionality using YOLO neural networks.
 //!
-//! This module provides functionality for detecting humans in images using
-//! the YOLO (You Only Look Once) deep learning model. It includes capabilities
-//! for loading Darknet models, processing images, and drawing bounding boxes
-//! around detected humans.
+//! This module provides implementations for human detection using YOLO (You Only Look Once)
+//! deep learning models through OpenCV's DNN module. It includes:
+//!
+//! - `YoloConfig`: Configuration parameters for YOLO detection
+//! - `DarknetModel`: A wrapper around OpenCV's DNN implementation for Darknet models
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
     dnn::{self},
-    imgproc,
     prelude::*,
 };
 
-/// Represents a Darknet model for object detection
-///
-/// This struct encapsulates a DNN (Deep Neural Network) model loaded from Darknet format
-pub struct DarknetModel {
-    net: dnn::Net,
-}
-
 /// Configuration struct for YOLO object detection parameters
-struct YoloConfig {
+pub struct YoloConfig {
     /// Input size (width and height) for the neural network in pixels
-    input_size: i32,
+    pub input_size: i32,
     /// Scale factor for normalizing pixel values (typically 1/255)
-    scale_factor: f64,
+    pub scale_factor: f64,
     /// Minimum confidence threshold for object detection
-    confidence_threshold: f32,
+    pub confidence_threshold: f32,
     /// Confidence threshold used in non-maximum suppression
-    nms_confidence_threshold: f32,
+    pub nms_confidence_threshold: f32,
     /// Intersection over Union (IoU) threshold for non-maximum suppression
-    nms_threshold: f32,
+    pub nms_threshold: f32,
     /// Minimum score threshold for keeping detections
-    score_threshold: f32,
+    pub score_threshold: f32,
     /// Maximum number of detections to return (0 means no limit)
-    top_k: i32,
+    pub top_k: i32,
 }
 
-const YOLO_CONFIG: YoloConfig = YoloConfig {
+pub const YOLO_CONFIG: YoloConfig = YoloConfig {
     input_size: 416,
     scale_factor: 1.0 / 255.0,
     confidence_threshold: 0.5,
@@ -45,6 +38,13 @@ const YOLO_CONFIG: YoloConfig = YoloConfig {
     score_threshold: 1.0,
     top_k: 0,
 };
+
+/// Represents a Darknet model for object detection
+///
+/// This struct encapsulates a DNN (Deep Neural Network) model loaded from Darknet format
+pub struct DarknetModel {
+    net: dnn::Net,
+}
 
 impl DarknetModel {
     /// Creates a new DarknetModel instance from model configuration and weights files
@@ -213,35 +213,6 @@ impl DarknetModel {
         )?;
 
         Ok(indices.iter().map(|idx| boxes[idx as usize]).collect())
-    }
-
-    /// Draws bounding boxes on the input image
-    ///
-    /// # Arguments
-    ///
-    /// * `input_image` - The image to draw bounding boxes on
-    /// * `boxes` - A slice of rectangles representing the bounding boxes to draw
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), opencv::Error>` - Ok if successful, Err otherwise
-    pub fn draw_bounding_boxes(
-        &self,
-        input_image: &mut opencv::core::Mat,
-        boxes: &[opencv::core::Rect],
-    ) -> Result<(), opencv::Error> {
-        for bbox in boxes {
-            imgproc::rectangle(
-                input_image,
-                *bbox,
-                Scalar::new(0.0, 255.0, 0.0, 0.0),
-                2,
-                8,
-                0,
-            )?;
-        }
-
-        Ok(())
     }
 }
 

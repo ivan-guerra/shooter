@@ -119,7 +119,7 @@ fn draw_text(
         position,
         imgproc::FONT_HERSHEY_SIMPLEX,
         0.5,
-        Scalar::new(0.0, 255.0, 0.0, 0.0),
+        Scalar::new(255.0, 255.0, 255.0, 0.0),
         1,
         8,
         false,
@@ -183,7 +183,7 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
                 draw_text(
                     &mut frame,
                     &format!(
-                        "azimuth: {:.2} elevation: {:.2}",
+                        "az: {:.2} el: {:.2}",
                         target_pos.azimuth, target_pos.elevation
                     ),
                     text_pos,

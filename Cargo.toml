@@ -6,11 +6,21 @@ description = "Human detection and shooting"
 license = "Unlicense"
 
 [dependencies]
+# Image processing
 opencv = "0.93.5"
 image = "0.25.5"
+
+# Video display
 minifb = "0.27.0"
+
+# Command line arguments
 clap = {version = "4.5.23", features = ["derive"]}
+
+# Configuration management
 serde = {version = "1.0.217", features = ["derive"]}
 serde_toml = "0.0.1"
 toml = "0.8.19"
-url = {version = "2.4.1", features = ["serde"]}
+url = {version = "2.5.4", features = ["serde"]}
+
+# Unit testing
+testdir = "0.9.3"

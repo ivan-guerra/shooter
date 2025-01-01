@@ -188,3 +188,44 @@ pub fn capture_humans(player: &mut VideoPlayer) -> Result<(), Box<dyn std::error
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mat_to_minifb_buffer_converts_mat_to_buffer() {
+        let width = 2;
+        let height = 2;
+        let mat = Mat::new_rows_cols_with_default(
+            height as i32,
+            width as i32,
+            opencv::core::CV_8UC3,
+            Scalar::new(255.0, 128.0, 0.0, 0.0),
+        )
+        .unwrap();
+        let mut buffer = vec![0u32; width * height];
+
+        mat_to_minifb_buffer(&mat, &mut buffer, width, height).unwrap();
+
+        // Expected RGBA value: alpha(255) | red(255) | green(128) | blue(0)
+        let expected = (255 << 24) | (255 << 16) | (128 << 8);
+        buffer.iter().for_each(|&pixel| assert_eq!(pixel, expected));
+    }
+
+    #[test]
+    fn mat_to_minifb_buffer_rejects_invalid_dimension() {
+        let width = 2;
+        let height = 2;
+        let mat = Mat::new_rows_cols_with_default(
+            3,
+            3,
+            opencv::core::CV_8UC3,
+            Scalar::new(0.0, 0.0, 0.0, 0.0),
+        )
+        .unwrap();
+        let mut buffer = vec![0u32; width * height];
+
+        assert!(mat_to_minifb_buffer(&mat, &mut buffer, width, height).is_err());
+    }
+}

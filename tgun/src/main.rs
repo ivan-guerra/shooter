@@ -35,7 +35,7 @@ struct Args {
 
 fn run(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let shooter_conf = ShooterConfig::new(config_path)?;
-    let mut gun = TurretGun::new(&shooter_conf)?;
+    let mut gun = TurretGun::default();
 
     // Create a channel to communicate between the signal handler and main thread
     let (tx, rx) = std::sync::mpsc::channel();
@@ -45,7 +45,7 @@ fn run(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> 
         tx.send(()).expect("Could not send signal");
     })?;
 
-    gun.start()?;
+    gun.start(&shooter_conf)?;
 
     // Wait for SIGTERM
     rx.recv()?;

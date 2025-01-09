@@ -14,12 +14,32 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-/// Represents a 2D point with x and y coordinates as f64 values
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Point2D(f64, f64);
+/// Represents a rectangular shape with position and dimensions
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct Rect {
+    /// X-coordinate of the rectangle's top-left corner
+    pub x: i32,
+    /// Y-coordinate of the rectangle's top-left corner
+    pub y: i32,
+    /// Width of the rectangle in pixels
+    pub width: i32,
+    /// Height of the rectangle in pixels
+    pub height: i32,
+}
+
+impl Rect {
+    pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
 
 /// Represents telemetry data for a turret gun system
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TurretGunTelemetry {
     /// Horizontal angle of the turret in degrees
     pub azimuth: f64,
@@ -28,11 +48,11 @@ pub struct TurretGunTelemetry {
     /// Indicates whether the gun has fired
     pub has_fired: bool,
     /// Four points defining the corners of the bounding box
-    pub bounding_box: [Point2D; 4],
+    pub bounding_box: Rect,
     /// Width of the image in pixels
-    pub img_width: u16,
+    pub img_width: i32,
     /// Height of the image in pixels
-    pub img_height: u16,
+    pub img_height: i32,
 }
 
 /// Configuration for a camera source

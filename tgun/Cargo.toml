@@ -19,6 +19,9 @@ clap = {version = "4.5.25", features = ["derive"]}
 # Signal handling
 ctrlc = "3.4.5"
 
+# For serializing telemetry data
+bincode = "1.3.3"
+
 # Unit testing
 testdir = "0.9.3"
 url = "2.5.4"

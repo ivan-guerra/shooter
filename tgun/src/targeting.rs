@@ -3,7 +3,6 @@
 //! This module provides utilities for converting detected object coordinates
 //! into real-world spherical coordinates (azimuth and elevation angles).
 //! It handles:
-//! - Converting bounding box coordinates to center points
 //! - Transforming pixel coordinates to normalized space
 //! - Calculating azimuth and elevation angles based on camera parameters
 //!
@@ -22,19 +21,6 @@ pub struct TargetPosition {
     pub elevation: f64,
 }
 
-/// Calculates the center point of a rectangular region
-///
-/// # Arguments
-/// * `rect` - Reference to a rectangle structure containing x, y coordinates and dimensions
-///
-/// # Returns
-/// * `(i32, i32)` - Tuple containing the (x, y) coordinates of the rectangle's center
-pub fn get_center_of_rect(rect: &Rect) -> (i32, i32) {
-    let x = rect.x + (rect.width / 2);
-    let y = rect.y + (rect.height / 2);
-    (x, y)
-}
-
 /// Calculates the target position in spherical coordinates (azimuth and elevation)
 /// based on the detected object's bounding box and camera parameters
 ///
@@ -50,7 +36,10 @@ pub fn get_target_position(
     img_dim: (i32, i32),
     cam_settings: &Camera,
 ) -> TargetPosition {
-    let (x, y) = get_center_of_rect(bounding_box);
+    let (x, y) = (
+        bounding_box.x + (bounding_box.width / 2),
+        bounding_box.y + (bounding_box.height / 2),
+    );
     let (x, y): (f64, f64) = (x.into(), y.into());
     let (width, height): (f64, f64) = (img_dim.0.into(), img_dim.1.into());
 
@@ -69,22 +58,6 @@ pub fn get_target_position(
 mod tests {
     use super::*;
     use url::Url;
-
-    #[test]
-    fn get_center_simple_rect() {
-        let rect = Rect::new(0, 0, 100, 100);
-        let (x, y) = get_center_of_rect(&rect);
-        assert_eq!(x, 50);
-        assert_eq!(y, 50);
-    }
-
-    #[test]
-    fn get_center_offset_rect() {
-        let rect = Rect::new(10, 20, 100, 100);
-        let (x, y) = get_center_of_rect(&rect);
-        assert_eq!(x, 60);
-        assert_eq!(y, 70);
-    }
 
     #[test]
     fn target_position_center() {
@@ -116,7 +89,6 @@ mod tests {
 
         let rect = Rect::new(480, 360, 40, 40); // 3/4 across and 3/4 down
         let pos = get_target_position(&rect, (640, 480), &camera);
-        dbg!(&pos);
 
         assert!((pos.azimuth - 33.75).abs() < f64::EPSILON);
         assert!((pos.elevation + 26.25).abs() < f64::EPSILON);

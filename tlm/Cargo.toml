@@ -1,0 +1,8 @@
+[package]
+name = "tlm"
+version = "0.1.0"
+edition = "2021"
+description = "Display live turret gun telemetry"
+license = "Unlicense"
+
+[dependencies]

@@ -1,26 +1,7 @@
-[package]
-name = "shooter"
-version = "0.1.0"
-edition = "2021"
-description = "Human detection and shooting"
-license = "Unlicense"
-
-[dependencies]
-# Image processing
-opencv = "0.93.5"
-image = "0.25.5"
-
-# Command line arguments
-clap = {version = "4.5.24", features = ["derive"]}
-
-# Signal handling
-ctrlc = "3.4.5"
-
-# Configuration management
-serde = {version = "1.0.217", features = ["derive"]}
-serde_toml = "0.0.1"
-toml = "0.8.19"
-url = {version = "2.5.4", features = ["serde"]}
-
-# Unit testing
-testdir = "0.9.3"
+[workspace]
+members = [
+  "tlm_types",
+  "tgun", 
+  "tlm",
+]
+resolver = "2"

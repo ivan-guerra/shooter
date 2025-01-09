@@ -71,7 +71,7 @@ impl TurretGun {
                             for b in &boxes {
                                 let target_pos = targeting::get_target_position(
                                     b,
-                                    (configs.yolo.input_size, configs.yolo.input_size),
+                                    (frame.cols(), frame.rows()),
                                     &configs.camera,
                                 );
                                 // TODO: Move the turret to the target position.

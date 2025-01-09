@@ -16,11 +16,12 @@
 //!
 //! Where `config` is the path to a TOML configuration file containing
 //! required settings for video input and detection parameters.
+use crate::shoot::TurretGun;
 use clap::Parser;
 
 mod config;
 mod detection;
-mod playback;
+mod shoot;
 mod targeting;
 
 /// Command line arguments for the application.
@@ -32,11 +33,25 @@ struct Args {
     config: std::path::PathBuf,
 }
 
-/// Loads configuration and starts video playback with human detection
 fn run(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let shooter_conf = config::ShooterConfig::new(config_path)?;
-    let mut player = playback::VideoPlayer::new(&shooter_conf)?;
-    playback::capture_humans(&mut player)?;
+    let mut gun = TurretGun::new(&shooter_conf)?;
+
+    // Create a channel to communicate between the signal handler and main thread
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    // Set up the signal handler
+    ctrlc::set_handler(move || {
+        tx.send(()).expect("Could not send signal");
+    })?;
+
+    gun.start()?;
+
+    // Wait for SIGTERM
+    rx.recv()?;
+
+    // Stop the shooter when signal is received
+    gun.stop()?;
     Ok(())
 }
 

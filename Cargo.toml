@@ -10,11 +10,11 @@ license = "Unlicense"
 opencv = "0.93.5"
 image = "0.25.5"
 
-# Video display
-minifb = "0.27.0"
-
 # Command line arguments
-clap = {version = "4.5.23", features = ["derive"]}
+clap = {version = "4.5.24", features = ["derive"]}
+
+# Signal handling
+ctrlc = "3.4.5"
 
 # Configuration management
 serde = {version = "1.0.217", features = ["derive"]}

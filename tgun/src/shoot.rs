@@ -10,6 +10,7 @@
 //! separate thread and can be started and stopped safely.
 use crate::detection::DarknetModel;
 use crate::targeting;
+use log::{error, info};
 use opencv::{core::Mat, prelude::*, videoio};
 use shared::{Rect, ShooterConfig, TurretGunTelemetry};
 use std::net::UdpSocket;
@@ -55,13 +56,19 @@ impl TurretGun {
         if !dev.is_opened()? {
             return Err("Video capture device is not opened".into());
         }
+        info!("Opened video capture device");
+
         let mut tlm = TurretGunTelemetry::default();
         let tlm_socket = UdpSocket::bind(configs.telemetry.send_addr.as_str())?;
+        info!("Opened telemetry socket");
+
+        let mut model = DarknetModel::new(&configs.yolo)?;
+        info!("Loaded YOLO model");
 
         self.is_running.store(true, Ordering::SeqCst);
         let running = self.is_running.clone();
         self.thread = Some(thread::spawn(move || {
-            let mut model = DarknetModel::new(&configs.yolo).expect("Failed to create model");
+            info!("Started turret gun control loop");
 
             while running.load(Ordering::SeqCst) {
                 let mut frame = Mat::default();
@@ -83,14 +90,16 @@ impl TurretGun {
                                 tlm.bounding_box = Rect::new(b.x, b.y, b.width, b.height);
                                 tlm.img_width = frame.cols();
                                 tlm.img_height = frame.rows();
-                                match send_telemetry(&tlm, &tlm_socket, &configs) {
-                                    Ok(_) => {}
-                                    Err(e) => eprintln!("Failed to send telemetry: {}", e),
+                                if let Err(e) = send_telemetry(&tlm, &tlm_socket, &configs) {
+                                    error!("Failed to send telemetry: {}", e);
                                 }
                             }
                         }
                     }
                 }
+            }
+            if let Err(e) = dev.release() {
+                error!("Failed to release video capture device: {}", e);
             }
         }));
 

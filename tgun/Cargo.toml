@@ -9,6 +9,10 @@ license = "Unlicense"
 # Shared telemetry and configuration code
 shared = { path = "../shared" }
 
+# Logging
+log = "0.4.22"
+simplelog = "0.12"
+
 # Image processing
 opencv = "0.93.5"
 image = "0.25.5"

@@ -119,13 +119,12 @@ pub struct Telemetry {
     pub recv_addr: String,
 }
 
-/// Configuration structure for the shooter component
-/// Contains settings for both camera and YOLO detection
+/// Configuration for the shooter application
 #[derive(Debug, Clone, Deserialize)]
 pub struct ShooterConfig {
     /// Camera configuration settings
     pub camera: Camera,
-    /// YOLO object detection configuration settings
+    /// YOLO model configuration settings
     pub yolo: Yolo,
     /// Telemetry configuration settings
     pub telemetry: Telemetry,

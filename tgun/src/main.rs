@@ -18,8 +18,8 @@
 //! required settings for video input and detection parameters.
 use crate::shoot::TurretGun;
 use clap::Parser;
+use shared::ShooterConfig;
 
-mod config;
 mod detection;
 mod shoot;
 mod targeting;
@@ -34,7 +34,7 @@ struct Args {
 }
 
 fn run(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let shooter_conf = config::ShooterConfig::new(config_path)?;
+    let shooter_conf = ShooterConfig::new(config_path)?;
     let mut gun = TurretGun::new(&shooter_conf)?;
 
     // Create a channel to communicate between the signal handler and main thread

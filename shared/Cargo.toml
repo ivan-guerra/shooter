@@ -1,0 +1,16 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2021"
+description = "Types shared between tgun and tlm"
+license = "Unlicense"
+
+[dependencies]
+# Configuration management and serialization
+serde = {version = "1.0.217", features = ["derive"]}
+url = {version = "2.5.4", features = ["serde"]}
+serde_toml = "0.0.1"
+toml = "0.8.19"
+
+# Unit testing
+testdir = "0.9.3"

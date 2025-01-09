@@ -1,13 +1,39 @@
-//! Configuration management for the shooter system.
+//! A library for managing turret gun telemetry and configuration data.
 //!
-//! This module provides structures for managing configuration settings for:
-//! - Camera parameters including field of view and orientation offsets
-//! - YOLO object detection model settings including model paths and detection thresholds
+//! This module provides structures and functionality for:
+//! - Configuring and managing camera settings
+//! - YOLO object detection parameters
+//! - Turret gun telemetry data including position and firing state
+//! - Network telemetry configuration
 //!
-//! Configuration is loaded from TOML files and deserialized into strongly-typed structures
-//! using serde.
-use serde::Deserialize;
+//! The main components are:
+//! - [`TurretGunTelemetry`] for handling gun position and state data
+//! - [`ShooterConfig`] for managing system configuration
+//! - [`Camera`] for camera setup and calibration
+//! - [`Yolo`] for object detection parameters
+use serde::{Deserialize, Serialize};
 use url::Url;
+
+/// Represents a 2D point with x and y coordinates as f64 values
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Point2D(f64, f64);
+
+/// Represents telemetry data for a turret gun system
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TurretGunTelemetry {
+    /// Horizontal angle of the turret in degrees
+    pub azimuth: f64,
+    /// Vertical angle of the turret in degrees
+    pub elevation: f64,
+    /// Indicates whether the gun has fired
+    pub has_fired: bool,
+    /// Four points defining the corners of the bounding box
+    pub bounding_box: [Point2D; 4],
+    /// Width of the image in pixels
+    pub img_width: u16,
+    /// Height of the image in pixels
+    pub img_height: u16,
+}
 
 /// Configuration for a camera source
 #[derive(Debug, Clone, Deserialize)]
@@ -50,8 +76,8 @@ pub struct Yolo {
 impl Default for Yolo {
     fn default() -> Self {
         Self {
-            model_cfg: std::path::PathBuf::from("models/yolov4-tiny.cfg"),
-            model_weights: std::path::PathBuf::from("models/yolov4-tiny.weights"),
+            model_cfg: std::path::PathBuf::from("../models/yolov4-tiny.cfg"),
+            model_weights: std::path::PathBuf::from("../models/yolov4-tiny.weights"),
             input_size: 416,
             scale_factor: 1.0 / 255.0,
             confidence_threshold: 0.5,
@@ -63,6 +89,16 @@ impl Default for Yolo {
     }
 }
 
+/// Telemetry configuration structure
+/// Contains network addresses for sending and receiving data
+#[derive(Debug, Clone, Deserialize)]
+pub struct Telemetry {
+    /// Network address for sending telemetry data (ip:port)
+    pub send_addr: String,
+    /// Network address for receiving telemetry data (ip:port)
+    pub recv_addr: String,
+}
+
 /// Configuration structure for the shooter component
 /// Contains settings for both camera and YOLO detection
 #[derive(Debug, Clone, Deserialize)]
@@ -71,6 +107,8 @@ pub struct ShooterConfig {
     pub camera: Camera,
     /// YOLO object detection configuration settings
     pub yolo: Yolo,
+    /// Telemetry configuration settings
+    pub telemetry: Telemetry,
 }
 
 impl ShooterConfig {
@@ -123,6 +161,10 @@ mod tests {
             nms_threshold = 0.45
             score_threshold = 0.5
             top_k = 100
+
+            [telemetry]
+            send_addr = "192.168.1.16:5000"
+            recv_addr = "192.168.1.128:5000"
         "#;
 
         fs::write(&config_path, config_content)?;
@@ -142,6 +184,9 @@ mod tests {
         assert_eq!(config.yolo.scale_factor, 0.00392156862745098);
         assert_eq!(config.yolo.confidence_threshold, 0.5);
         assert_eq!(config.yolo.top_k, 100);
+
+        assert_eq!(config.telemetry.send_addr, "192.168.1.16:5000");
+        assert_eq!(config.telemetry.recv_addr, "192.168.1.128:5000");
 
         Ok(())
     }

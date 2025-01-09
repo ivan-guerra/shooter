@@ -1,7 +1,7 @@
-use crate::config::ShooterConfig;
 use crate::detection::DarknetModel;
 use crate::targeting;
 use opencv::{core::Mat, prelude::*, videoio};
+use shared::ShooterConfig;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};

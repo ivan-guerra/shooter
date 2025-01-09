@@ -2,12 +2,12 @@
 //!
 //! This module provides functionality for detecting humans in images using
 //! OpenCV's DNN module with a pre-trained YOLOv4-tiny model. It includes:
-use crate::config::Yolo;
 use opencv::{
     core::{Rect, Scalar, Size, Vector, CV_32F},
     dnn::{self},
     prelude::*,
 };
+use shared::Yolo;
 
 /// A wrapper struct for the YOLOv4-tiny neural network model using OpenCV's DNN module.
 pub struct DarknetModel {

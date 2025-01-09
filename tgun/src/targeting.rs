@@ -10,8 +10,8 @@
 //! The coordinate system uses:
 //! - Azimuth: Horizontal angle in degrees from true north
 //! - Elevation: Vertical angle in degrees from the horizontal plane
-use crate::config::Camera;
 use opencv::core::Rect;
+use shared::Camera;
 
 /// Represents a target's position in spherical coordinates
 #[derive(Debug)]

@@ -34,3 +34,9 @@ nms_threshold = 0.4
 score_threshold = 1.0
 # Maximum number of detections to keep (0 = no limit)
 top_k = 1
+
+[telemetry]
+# Address to which UDP telemetry packets are sent
+send_addr = "10.0.0.44:8000"
+# Address from which UDP telemetry packets are received
+recv_addr = "10.0.0.247:8000"

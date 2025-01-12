@@ -1,3 +1,6 @@
+[client]
+server_addr = "127.0.0.1:8000"
+
 # Camera configuration settings
 # These settings are for NEXIGO N60 Webcam with a factor configuration
 # https://drive.google.com/file/d/10IgEGNXSWZNjBNJv240IYPmdfYQsQpE6/view

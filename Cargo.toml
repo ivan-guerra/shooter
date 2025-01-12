@@ -3,5 +3,6 @@ members = [
   "shared",
   "tgun", 
   "tlm",
+  "tgc",
 ]
 resolver = "2"

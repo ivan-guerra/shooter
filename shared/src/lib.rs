@@ -1,18 +1,55 @@
-//! A library for managing turret gun telemetry and configuration data.
+//! Shared Data Types for Turret Control System
 //!
-//! This module provides structures and functionality for:
-//! - Configuring and managing camera settings
-//! - YOLO object detection parameters
-//! - Turret gun telemetry data including position and firing state
-//! - Network telemetry configuration
+//! This module defines the common data structures and types used for communication
+//! between the turret control client and server. It includes:
 //!
-//! The main components are:
-//! - [`TurretGunTelemetry`] for handling gun position and state data
-//! - [`ShooterConfig`] for managing system configuration
-//! - [`Camera`] for camera setup and calibration
-//! - [`Yolo`] for object detection parameters
+//! - Command and telemetry data structures
+//! - Configuration types for camera, YOLO detection, and network settings
+//! - Geometric primitives for target tracking
+//!
+//! The types in this module are serializable using serde and are designed to be
+//! used across the network boundary between client and server components.
+//!
+//! # Key Types
+//!
+//! - [`TurretCmd`]: Commands for controlling turret position and firing
+//! - [`TurretGunTelemetry`]: Feedback data from the turret system
+//! - [`ShooterConfig`]: Configuration settings for the entire system
+//! - [`Camera`]: Settings for video input processing
+//! - [`Yolo`]: Configuration for ML-based target detection
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+/// Represents a request from the client to the server for turret control commands.
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct TurretCmdRequest {
+    /// Unique identifier for the request to track command/response pairs
+    pub request_id: u32,
+}
+
+/// Represents a command to control the turret's position and firing state.
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct TurretCmd {
+    /// Horizontal angle of the turret in degrees
+    /// - Positive values rotate clockwise
+    /// - Range: 0 to 360 degrees
+    pub azimuth: f64,
+    /// Vertical angle of the turret in degrees
+    /// - Positive values move upward
+    /// - Range: -10 to 90 degrees
+    pub elevation: f64,
+    /// Indicates whether the gun should fire
+    /// - `true`: Trigger a shot
+    /// - `false`: Hold fire
+    pub fire: bool,
+}
+
+/// Configuration for a client connection to the turret control server.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Client {
+    /// The address of the server in the format "host:port"
+    pub server_addr: String,
+}
 
 /// Represents a rectangular shape with position and dimensions
 #[derive(Serialize, Deserialize, Debug)]
@@ -149,6 +186,7 @@ pub struct ShooterConfig {
     pub yolo: Yolo,
     /// Telemetry configuration settings
     pub telemetry: Telemetry,
+    pub client: Client,
 }
 
 impl ShooterConfig {
@@ -184,6 +222,8 @@ mod tests {
         let config_path = dir.join("config.toml");
 
         let config_content = r#"
+            [client]
+            server_addr = "127.0.0.1:8000"
             [camera]
             stream_url = "rtsp://example.com/stream"
             frame_rate = 10
@@ -212,6 +252,7 @@ mod tests {
 
         let config = ShooterConfig::new(&config_path)?;
 
+        assert_eq!(config.client.server_addr.as_str(), "127.0.0.1:8000");
         assert_eq!(
             config.camera.stream_url.as_str(),
             "rtsp://example.com/stream"

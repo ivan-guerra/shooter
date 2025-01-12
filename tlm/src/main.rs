@@ -1,8 +1,27 @@
+//! A telemetry visualization application for the turret control system.
+//!
+//! This module provides a graphical interface that displays real-time telemetry data
+//! received from a turret gun system over UDP. It uses the minifb library for
+//! window management and visualization.
+//!
+//! The application accepts command-line arguments for:
+//! - Configuration file path
+//! - Window dimensions (width and height)
+//!
+//! The program will continue running until either:
+//! - The window is closed
+//! - The Escape key is pressed
+//!
+//! # Usage
+//! ```shell
+//! tlm --width <WIDTH> --height <HEIGHT> <CONFIG_FILE>
+//! ```
 use clap::Parser;
 use minifb::{Key, Window, WindowOptions};
 use shared::{ShooterConfig, TurretGunTelemetry};
 use std::net::UdpSocket;
 
+#[doc(hidden)]
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -25,6 +44,7 @@ struct Args {
     height: usize,
 }
 
+#[doc(hidden)]
 fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let conf = ShooterConfig::new(&args.config)?;
 
@@ -33,7 +53,7 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = [0; 1024];
 
     let mut window = Window::new(
-        "Turret Telemetry",
+        "Turret Gun Telemetry",
         args.width,
         args.height,
         WindowOptions::default(),
@@ -44,7 +64,7 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         if let Ok((len, _)) = socket.recv_from(&mut buf) {
             match bincode::deserialize::<TurretGunTelemetry>(&buf[..len]) {
                 Ok(telemetry) => {
-                    tlm::render_telemetry(&mut window, &mut buffer, &telemetry, &conf.camera);
+                    tlm::render_telemetry(&mut window, &mut buffer, &telemetry, &conf.camera)?;
                 }
                 Err(e) => {
                     eprintln!("Failed to deserialize telemetry data: {}", e);
@@ -56,10 +76,11 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[doc(hidden)]
 fn main() {
     let args = Args::parse();
     if let Err(e) = run(args) {
-        eprintln!("error: {e}");
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 }

@@ -10,7 +10,7 @@ license = "Unlicense"
 shared = { path = "../shared" }
 
 # Command line arguments
-clap = {version = "4.5.25", features = ["derive"]}
+clap = {version = "4.5.26", features = ["derive"]}
 
 # For deserializing telemetry data
 serde = { version = "1.0.217", features = ["derive"] }
@@ -18,3 +18,6 @@ bincode = "1.3.3"
 
 # For displaying image data
 minifb = "0.27.0"
+
+# For testing
+url = "2.5.4"

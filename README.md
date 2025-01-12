@@ -4,7 +4,7 @@ A Nerf turret gun that automatically detects, tracks, and fires at humans.
 **This is a work in progress**. Currently, we are able to render a live video
 feed demonstrating the software can recognize a human. The software generates
 azimuth and elevation angles to track their movement within the camera's field
-of view. Below is a recording of `shooter` in action:
+of view. Below is a recording of the turret gun software in action:
 
 https://github.com/user-attachments/assets/5b448016-83db-4d57-be2f-94c9ee887f96
 
@@ -13,6 +13,13 @@ dot represents the center of the bounding box and is where the turret gun will
 aim. At the top of the screen, you can see live azimuth and elevation angles.
 These angles will be converted to motor movements to aim the turret at the
 person.
+
+The `shooter` project includes two applications. The first application is called
+`tgun` (turret gun). `tgun` runs onboard the Raspberry Pi and is responsible for
+controlling the turret gun. The second application is called `tlm` (telemetry)
+and is mainly useful for debugging. `tlm` runs on a separate computer and reads
+telemetry data sent by `tgun` over the network. `tlm` renders a live video feed
+with overlays like the one shown in the demo video above.
 
 ### Human Detection
 
@@ -26,49 +33,58 @@ installed on our turret gun.
 
 `shooter` requires a configuration file to run . You can checkout an example
 config file under [`configs/test.toml`](configs/test.toml). The config file
-contains sections for configuring camera settings and YOLO model parameters.
+contains sections for configuring camera, detection model, and telemetry
+parameters.
 
 ### Getting a Video Stream
 
 `shooter` requires a video stream from a webcam or other video source. We
 currently are using a [Nexigo N60 webcam][5] and the [cam2ip][3] software to
 produce a video stream. You can [download][4] a cam2ip release binary from
-GitHub. To produce an IP video feed, plugin your webcam and run:
+GitHub.
+
+### Running `tgun`
+
+1. Cross compile the `tgun` binary for the Raspberry Pi. See [`docker/README.md`](docker/README.md) for instructions.
+
+2. Copy the `tgun` binary, configs, and models to the Raspberry Pi:
 
 ```bash
-cam2ip -index CAMERA_INDEX -height 416 -width 416 -delay 10
+scp target/aarch64-unknown-linux-gnu/release/tgun ieg@10.0.0.247:/home/ieg
+scp -r configs/ ieg@10.0.0.247:/home/ieg
+scp -r models/ ieg@10.0.0.247:/home/ieg
 ```
 
-Where `CAMERA_INDEX` is the index of your webcam. You can use a utility like
-`v4l2-ctl` to discover the index of your webcam. For example,
+3. Plug the webcam into the Raspberry Pi.
 
-```text
-v4l2-ctl --list-devices
+4. Run `cam2ip` to produce a video stream.
 
-NexiGo N60 FHD Webcam Audio: Ne (usb-0000:00:14.0-1.4):
-	/dev/video2
-	/dev/video3
-	/dev/media1
-```
+5. Edit the configuration file and adjust parameters to match your network and
+   camera.
 
-In the output above, the first `/dev/video2` indicates that my webcam's index is 2.
-
-Assuming you ran `cam2ip` as shown above, you can view your webcam's live video
-stream in your browser using the URL `http://localhost:56000/mjpeg`. **You'll want
-to make sure this URL is copied to the `stream_url` field in your config file**.
-
-### Running `shooter`
-
-Running `shooter` is a three step process:
-
-1. Plugin your webcam.
-
-2. Run `cam2ip` to produce a video stream (see [Getting a Video Stream](#getting-a-video-stream)).
-
-3. Run `shooter` supplying it a configuration file:
+6. Run `tgun` supplying it a configuration file:
 
 ```bash
-shooter test.toml
+tgun test.toml
+```
+
+### Running `tlm`
+
+1. Build the `tlm` binary:
+
+```bash
+cargo build --release --bin tlm
+```
+
+2. Edit the configuration file as necessary. Note, usually the same
+   configuration file given to `tgun` can be used with `tlm` without
+   modification.
+
+3. Run `tlm` supplying it a configuration file and the width/height of the
+   video stream frames:
+
+```bash
+tlm --width 640 --height 480 test.toml
 ```
 
 [1]: https://github.com/AlexeyAB/darknet

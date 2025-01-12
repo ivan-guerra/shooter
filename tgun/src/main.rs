@@ -39,7 +39,7 @@ struct Args {
 #[doc(hidden)]
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let configs = ShooterConfig::new(&args.config)?;
+
     CombinedLogger::init(vec![
         TermLogger::new(
             LevelFilter::Info,
@@ -55,7 +55,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .unwrap_or(std::path::PathBuf::from("tgun.log")),
             )?,
         ),
-    ])?;
+    ])
+    .unwrap_or_else(|e| panic!("Failed to initialize logger: {}", e));
+
+    let configs = ShooterConfig::new(&args.config)?;
 
     let dev =
         videoio::VideoCapture::from_file(configs.camera.stream_url.as_str(), videoio::CAP_ANY)

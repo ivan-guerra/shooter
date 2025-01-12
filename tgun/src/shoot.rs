@@ -1,122 +1,113 @@
-//! Turret gun control module that handles video capture, human detection, and targeting
+//! Control system for target detection and tracking.
 //!
-//! This module provides the core functionality for the autonomous turret gun system:
-//! - Video stream processing from configured camera
-//! - Human detection using YOLO neural network
-//! - Target position calculation and tracking
-//! - Telemetry data transmission over UDP
+//! This module implements the main control loop and signal handling for the TGUN system.
+//! It processes video frames, detects human targets using computer vision, and manages
+//! turret positioning and telemetry reporting.
 //!
-//! The main component is the [`TurretGun`] struct which runs the control loop in a
-//! separate thread and can be started and stopped safely.
+//! # Core Components:
+//! * `control_loop` - Main processing loop that handles video capture and target detection
+//! * `signal_listener` - Handles system shutdown signals (SIGTERM/SIGINT)
+//! * `send_telemetry` - Reports target tracking data via UDP
 use crate::detection::DarknetModel;
 use crate::targeting;
-use log::{error, info};
-use opencv::{core::Mat, prelude::*, videoio};
+use async_signal::Signals;
+use async_std::{channel, task};
+use futures::stream::StreamExt;
+use log::{error, info, warn};
+use opencv::{prelude::*, videoio};
 use shared::{Rect, ShooterConfig, TurretGunTelemetry};
 use std::net::UdpSocket;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
-/// Sends telemetry data over UDP socket using the provided configuration
+/// Sends turret gun telemetry data over UDP to configured receiver
 fn send_telemetry(
-    tlm: &TurretGunTelemetry,
+    tlm: TurretGunTelemetry,
     tlm_socket: &UdpSocket,
     configs: &ShooterConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let buf = bincode::serialize(tlm)?;
+    let buf = bincode::serialize(&tlm)?;
     tlm_socket.send_to(&buf, configs.telemetry.recv_addr.as_str())?;
     Ok(())
 }
 
-/// Represents a turret gun controller that can be run in a separate thread
-pub struct TurretGun {
-    /// Handle to the thread running the turret gun control loop
-    thread: Option<JoinHandle<()>>,
-    /// Atomic flag indicating whether the control loop should continue running
-    is_running: Arc<AtomicBool>,
-}
+/// Main control loop for target detection and tracking
+///
+/// Processes video frames at configured rate to detect human targets and control turret positioning.
+/// Sends telemetry data for each detected target. Loop continues until shutdown signal is received.
+pub async fn control_loop(
+    shutdown_rx: channel::Receiver<()>,
+    config: ShooterConfig,
+    mut dev: videoio::VideoCapture,
+    mut model: DarknetModel,
+    tlm_socket: UdpSocket,
+) {
+    let interval = Duration::from_millis(1000 / config.camera.frame_rate);
+    info!(
+        "Starting control loop with run rate: {:?}Hz",
+        1.0 / interval.as_secs_f64()
+    );
 
-impl Default for TurretGun {
-    fn default() -> Self {
-        Self {
-            thread: None,
-            is_running: Arc::new(AtomicBool::new(false)),
+    loop {
+        let start = Instant::now();
+
+        // Check for shutdown signal
+        if shutdown_rx.try_recv().is_ok() {
+            info!("Shutdown signal received. Exiting control loop...");
+            break;
         }
-    }
-}
 
-impl TurretGun {
-    /// Starts the turret gun control loop in a separate thread
-    pub fn start(&mut self, configs: &ShooterConfig) -> Result<(), Box<dyn std::error::Error>> {
-        let configs = configs.clone();
-        let mut dev =
-            videoio::VideoCapture::from_file(configs.camera.stream_url.as_str(), videoio::CAP_ANY)
-                .map_err(|_| "Failed to create VideoCapture")?;
-        if !dev.is_opened()? {
-            return Err("Video capture device is not opened".into());
-        }
-        info!("Opened video capture device");
+        // Detect a human, move the gun, and fire
+        let mut frame = Mat::default();
+        if let Ok(true) = dev.read(&mut frame) {
+            if !frame.empty() {
+                if let Ok(boxes) = model.find_humans(&frame) {
+                    for b in &boxes {
+                        let target_pos = targeting::get_target_position(
+                            b,
+                            (frame.cols(), frame.rows()),
+                            &config.camera,
+                        );
+                        // TODO: Move the turret to the target position. Should be async task.
+                        // TODO: Fire the gun. Should be async task.
 
-        let mut tlm = TurretGunTelemetry::default();
-        let tlm_socket = UdpSocket::bind(configs.telemetry.send_addr.as_str())?;
-        info!("Opened telemetry socket");
-
-        let mut model = DarknetModel::new(&configs.yolo)?;
-        info!("Loaded YOLO model");
-
-        self.is_running.store(true, Ordering::SeqCst);
-        let running = self.is_running.clone();
-        self.thread = Some(thread::spawn(move || {
-            info!("Started turret gun control loop");
-
-            while running.load(Ordering::SeqCst) {
-                let mut frame = Mat::default();
-                if let Ok(true) = dev.read(&mut frame) {
-                    if !frame.empty() {
-                        if let Ok(boxes) = model.find_humans(&frame) {
-                            for b in &boxes {
-                                let target_pos = targeting::get_target_position(
-                                    b,
-                                    (frame.cols(), frame.rows()),
-                                    &configs.camera,
-                                );
-                                // TODO: Move the turret to the target position.
-                                // TODO: Fire the gun.
-
-                                tlm.azimuth = target_pos.azimuth;
-                                tlm.elevation = target_pos.elevation;
-                                tlm.has_fired = false;
-                                tlm.bounding_box = Rect::new(b.x, b.y, b.width, b.height);
-                                tlm.img_width = frame.cols();
-                                tlm.img_height = frame.rows();
-                                if let Err(e) = send_telemetry(&tlm, &tlm_socket, &configs) {
-                                    error!("Failed to send telemetry: {}", e);
-                                }
-                            }
+                        let tlm = TurretGunTelemetry::new(
+                            target_pos.azimuth,
+                            target_pos.elevation,
+                            false,
+                            Rect::new(b.x, b.y, b.width, b.height),
+                            frame.cols(),
+                            frame.rows(),
+                        );
+                        if let Err(e) = send_telemetry(tlm, &tlm_socket, &config) {
+                            error!("Failed to send telemetry: {}", e);
                         }
                     }
                 }
             }
-            if let Err(e) = dev.release() {
-                error!("Failed to release video capture device: {}", e);
-            }
-        }));
-
-        Ok(())
-    }
-
-    /// Stops the turret gun control loop and waits for the thread to finish
-    pub fn stop(self) -> Result<(), Box<dyn std::error::Error + 'static>> {
-        self.is_running.store(false, Ordering::SeqCst);
-        if let Some(thread) = self.thread {
-            thread.join().map_err(|_| {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to join thread",
-                ))
-            })?;
         }
-        Ok(())
+
+        // Calculate elapsed time and sleep for the remainder of the interval
+        let elapsed = start.elapsed();
+        if elapsed < interval {
+            task::sleep(interval - elapsed).await;
+        } else {
+            warn!("Control loop overran by {:?}", elapsed - interval);
+        }
+    }
+}
+
+/// Listens for system termination signals and initiates graceful shutdown
+///
+/// Monitors for SIGTERM and SIGINT signals. When received, sends shutdown signal
+/// through provided channel to trigger application shutdown.
+pub async fn signal_listener(shutdown_tx: channel::Sender<()>) {
+    let mut signals = Signals::new([async_signal::Signal::Term, async_signal::Signal::Int])
+        .expect("Failed to create signal listener");
+
+    // Use StreamExt::next to get the next signal
+    if let Some(signal) = signals.next().await {
+        info!("Received signal: {:?}", signal);
+        info!("Sending shutdown signal...");
+        let _ = shutdown_tx.send(()).await; // Ignore errors if receiver is already dropped
     }
 }

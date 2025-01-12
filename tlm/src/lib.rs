@@ -157,6 +157,7 @@ mod tests {
     fn get_target_position_maps_center_correctly() {
         let cam_conf = Camera {
             stream_url: url::Url::parse("http://foo.bar").unwrap(),
+            frame_rate: 10,
             horizontal_fov: 60.0,
             vertical_fov: 40.0,
             azimuth_offset: 0.0,
@@ -174,6 +175,7 @@ mod tests {
     fn get_target_position_maps_corners_correctly() {
         let cam_conf = Camera {
             stream_url: url::Url::parse("http://foo.bar").unwrap(),
+            frame_rate: 10,
             horizontal_fov: 60.0,
             vertical_fov: 40.0,
             azimuth_offset: 0.0,
@@ -206,6 +208,7 @@ mod tests {
     fn get_target_position_handles_camera_offsets() {
         let cam_conf = Camera {
             stream_url: url::Url::parse("http://foo.bar").unwrap(),
+            frame_rate: 10,
             horizontal_fov: 60.0,
             vertical_fov: 40.0,
             azimuth_offset: 10.0,
@@ -223,6 +226,7 @@ mod tests {
     fn get_target_position_maps_with_nonzero_offsets() {
         let cam_conf = Camera {
             stream_url: url::Url::parse("http://foo.bar").unwrap(),
+            frame_rate: 10,
             horizontal_fov: 60.0,
             vertical_fov: 40.0,
             azimuth_offset: 15.0,   // Camera is rotated 15° right

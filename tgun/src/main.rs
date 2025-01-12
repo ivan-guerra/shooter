@@ -1,35 +1,34 @@
 //! Turret Gun Control System
 //!
-//! This module provides the main entry point for the turret gun control application.
-//! It handles command-line argument parsing, logging setup, and graceful shutdown
-//! on SIGTERM. The application reads configuration from a file and controls a
-//! turret gun system through the following components:
+//! This module serves as the entry point for the `tgun` application, which provides
+//! real-time target detection and tracking capabilities using computer vision.
 //!
-//! - Detection: Target detection functionality
-//! - Shoot: Turret gun control and firing mechanisms
-//! - Targeting: Target acquisition and tracking
+//! The system:
+//! - Processes video input from a configured source
+//! - Performs object detection using a YOLO darknet model
+//! - Handles telemetry data through UDP communication
+//! - Provides graceful shutdown handling via signal interrupts
 //!
-//! # Usage
-//!
-//! ```bash
-//! tgun <config-file> [--log-path <log-file>]
-//! ```
-use crate::shoot::TurretGun;
+//! The application is configured via a configuration file specified as a command-line
+//! argument and optionally supports custom log file paths.
+use crate::detection::DarknetModel;
+use async_std::{channel, task};
 use clap::Parser;
 use log::{error, info};
+use opencv::{prelude::*, videoio};
 use shared::ShooterConfig;
 use simplelog::ConfigBuilder;
 use simplelog::*;
+use std::net::UdpSocket;
 
 mod detection;
 mod shoot;
 mod targeting;
 
-/// Command line arguments for the application.
+#[doc(hidden)]
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Path to the configuration file
     #[arg(help = "Path to the configuration file")]
     config: std::path::PathBuf,
 
@@ -37,8 +36,10 @@ struct Args {
     log_path: Option<std::path::PathBuf>,
 }
 
-fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let shooter_conf = ShooterConfig::new(&args.config)?;
+#[doc(hidden)]
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let configs = ShooterConfig::new(&args.config)?;
     CombinedLogger::init(vec![
         TermLogger::new(
             LevelFilter::Info,
@@ -56,33 +57,48 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         ),
     ])?;
 
-    let mut gun = TurretGun::default();
+    let dev =
+        videoio::VideoCapture::from_file(configs.camera.stream_url.as_str(), videoio::CAP_ANY)
+            .map_err(|_| "Failed to create VideoCapture")?;
+    if !dev.is_opened()? {
+        return Err("Video capture device is not opened".into());
+    }
+    info!("Opened video capture device");
 
-    // Create a channel to communicate between the signal handler and main thread
-    let (tx, rx) = std::sync::mpsc::channel();
+    let tlm_socket = UdpSocket::bind(configs.telemetry.send_addr.as_str())?;
+    info!("Opened telemetry socket");
 
-    // Set up the signal handler
-    ctrlc::set_handler(move || {
-        tx.send(()).expect("Could not send signal");
-    })?;
+    let model = DarknetModel::new(&configs.yolo)?;
+    info!("Loaded YOLO model");
 
-    info!("Starting turret gun...");
-    gun.start(&shooter_conf)?;
+    // Create a channel for signaling shutdown
+    let (shutdown_tx, shutdown_rx) = channel::bounded(1);
 
-    // Wait for SIGTERM
-    rx.recv()?;
+    // Spawn the control loop in a separate task
+    let control_task = task::spawn(shoot::control_loop(
+        shutdown_rx,
+        configs,
+        dev,
+        model,
+        tlm_socket,
+    ));
 
-    // Stop the shooter when signal is received
-    info!("Stopping turret gun");
-    gun.stop()?;
+    // Spawn a signal listener task to handle SIGTERM or SIGINT
+    let signal_task = task::spawn(shoot::signal_listener(shutdown_tx));
 
+    // Wait for both tasks to complete
+    control_task.await;
+    signal_task.await;
+
+    info!("Control loop has exited. tgun shutting down.");
     Ok(())
 }
 
-fn main() {
-    let args = Args::parse();
-    if let Err(e) = run(args) {
-        error!("error: {e}");
+#[doc(hidden)]
+#[async_std::main]
+async fn main() {
+    if let Err(e) = run().await {
+        error!("Error: {}", e);
         std::process::exit(1);
     }
 }

@@ -63,6 +63,7 @@ mod tests {
     fn target_position_center() {
         let camera = Camera {
             stream_url: Url::parse("https://example.com/stream").unwrap(),
+            frame_rate: 30,
             horizontal_fov: 90.0,
             vertical_fov: 60.0,
             azimuth_offset: 0.0,
@@ -81,6 +82,7 @@ mod tests {
     fn target_position_different_fov() {
         let camera = Camera {
             stream_url: Url::parse("https://example.com/stream").unwrap(),
+            frame_rate: 30,
             horizontal_fov: 120.0,
             vertical_fov: 90.0,
             azimuth_offset: 0.0,

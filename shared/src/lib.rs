@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// Represents a rectangular shape with position and dimensions
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Rect {
     /// X-coordinate of the rectangle's top-left corner
     pub x: i32,
@@ -39,7 +39,7 @@ impl Rect {
 }
 
 /// Represents telemetry data for a turret gun system
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TurretGunTelemetry {
     /// Horizontal angle of the turret in degrees
     pub azimuth: f64,
@@ -55,11 +55,33 @@ pub struct TurretGunTelemetry {
     pub img_height: i32,
 }
 
+impl TurretGunTelemetry {
+    pub fn new(
+        azimuth: f64,
+        elevation: f64,
+        has_fired: bool,
+        bounding_box: Rect,
+        img_width: i32,
+        img_height: i32,
+    ) -> Self {
+        Self {
+            azimuth,
+            elevation,
+            has_fired,
+            bounding_box,
+            img_width,
+            img_height,
+        }
+    }
+}
+
 /// Configuration for a camera source
 #[derive(Debug, Clone, Deserialize)]
 pub struct Camera {
     /// URL of the video stream
     pub stream_url: Url,
+    /// The number of frames per second
+    pub frame_rate: u64,
     /// Horizontal field of view in degrees
     pub horizontal_fov: f64,
     /// Vertical field of view in degrees
@@ -109,13 +131,12 @@ impl Default for Yolo {
     }
 }
 
-/// Telemetry configuration structure
-/// Contains network addresses for sending and receiving data
+/// Telemetry configuration structure containing network addresses for sending and receiving data
 #[derive(Debug, Clone, Deserialize)]
 pub struct Telemetry {
-    /// Network address for sending telemetry data (ip:port)
+    /// Network address for sending telemetry data (e.g., 127.0.0.1:8000)
     pub send_addr: String,
-    /// Network address for receiving telemetry data (ip:port)
+    /// Network address for receiving telemetry data (e.g., 127.0.0.1:8000)
     pub recv_addr: String,
 }
 
@@ -165,6 +186,7 @@ mod tests {
         let config_content = r#"
             [camera]
             stream_url = "rtsp://example.com/stream"
+            frame_rate = 10
             horizontal_fov = 90.0
             vertical_fov = 60.0
             azimuth_offset = 0.0
@@ -194,6 +216,7 @@ mod tests {
             config.camera.stream_url.as_str(),
             "rtsp://example.com/stream"
         );
+        assert_eq!(config.camera.frame_rate, 10);
         assert_eq!(config.camera.horizontal_fov, 90.0);
         assert_eq!(config.camera.vertical_fov, 60.0);
         assert_eq!(config.camera.azimuth_offset, 0.0);

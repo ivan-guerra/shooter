@@ -5,6 +5,8 @@
 # HTTP stream URL for MJPEG video feed
 # https://github.com/gen2brain/cam2ip
 stream_url = "http://localhost:56000/mjpeg"
+# Number of frames per second
+frame_rate = 10
 # Horizontal field of view angle in degrees
 horizontal_fov = 89.0
 # Vertical field of view angle in degrees

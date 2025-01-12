@@ -18,6 +18,7 @@ bincode = "1.3.3"
 
 # For displaying image data
 minifb = "0.27.0"
+opencv = "0.94.1"
 
 # For testing
 url = "2.5.4"

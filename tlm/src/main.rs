@@ -18,6 +18,7 @@
 //! ```
 use clap::Parser;
 use minifb::{Key, Window, WindowOptions};
+use opencv::{prelude::*, videoio};
 use shared::{ShooterConfig, TurretGunTelemetry};
 use std::net::UdpSocket;
 
@@ -46,11 +47,18 @@ struct Args {
 
 #[doc(hidden)]
 fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let conf = ShooterConfig::new(&args.config)?;
+    let config = ShooterConfig::new(&args.config)?;
 
-    let socket = UdpSocket::bind(conf.telemetry.recv_addr)?;
+    let socket = UdpSocket::bind(config.telemetry.recv_addr)?;
     socket.set_nonblocking(true)?;
     let mut buf = [0; 1024];
+
+    let mut dev =
+        videoio::VideoCapture::from_file(config.camera.stream_url.as_str(), videoio::CAP_ANY)
+            .map_err(|_| "Failed to create VideoCapture")?;
+    if !dev.is_opened()? {
+        return Err("Video capture device is not opened".into());
+    }
 
     let mut window = Window::new(
         "Turret Gun Telemetry",
@@ -58,13 +66,12 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         args.height,
         WindowOptions::default(),
     )?;
-    let mut buffer = vec![0; args.width * args.height];
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if let Ok((len, _)) = socket.recv_from(&mut buf) {
             match bincode::deserialize::<TurretGunTelemetry>(&buf[..len]) {
                 Ok(telemetry) => {
-                    tlm::render_telemetry(&mut window, &mut buffer, &telemetry, &conf.camera)?;
+                    tlm::render_telemetry(&mut window, &mut dev, &telemetry, &config.camera)?;
                 }
                 Err(e) => {
                     eprintln!("Failed to deserialize telemetry data: {}", e);

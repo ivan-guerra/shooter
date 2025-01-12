@@ -1,17 +1,25 @@
-//! Telemetry visualization module for turret targeting system.
+//! Turret Live Monitor (TLM) visualization module
 //!
-//! This module provides functionality to visualize turret gun telemetry data,
-//! including target position and bounding box rendering. It handles coordinate
-//! transformations from angular space (azimuth/elevation) to screen space,
-//! accounting for camera configuration parameters like field of view and offsets.
+//! This module provides functionality for real-time visualization of turret telemetry data,
+//! including camera feed display, target position rendering, and debugging information.
+//! It uses OpenCV for image processing and minifb for window display.
 //!
-//! Key components:
-//! - Target position calculation from angular coordinates
-//! - Bounding box rendering
-//! - Target dot visualization
-//! - Buffer management for display output
+//! Main features:
+//! - Real-time camera feed display
+//! - Target position visualization with angular coordinates
+//! - Bounding box drawing for detected targets
+//! - Telemetry data overlay (azimuth, elevation, etc.)
+//!
+//! The module handles coordinate transformations between angular space (azimuth/elevation)
+//! and screen space, accounting for camera configuration parameters like FOV and offsets.
 use minifb::Window;
-use shared::{Camera, Rect, TurretGunTelemetry};
+use opencv::{
+    core::{Mat, Scalar},
+    imgproc,
+    prelude::*,
+    videoio,
+};
+use shared::{Camera, TurretGunTelemetry};
 
 /// Calculates the target position in screen coordinates from angular coordinates.
 fn get_target_position(
@@ -37,113 +45,142 @@ fn get_target_position(
     // Return the center point of where the bounding box should be
     (x, y)
 }
+/// Draws text on the input image at the specified position.
+fn draw_text(
+    input_image: &mut opencv::core::Mat,
+    text: &str,
+    position: opencv::core::Point,
+) -> Result<(), opencv::Error> {
+    imgproc::put_text(
+        input_image,
+        text,
+        position,
+        imgproc::FONT_HERSHEY_SIMPLEX,
+        0.5,
+        Scalar::new(255.0, 255.0, 255.0, 0.0),
+        1,
+        8,
+        false,
+    )?;
 
-/// Draws a rectangular outline with specified thickness in the buffer.
-fn draw_box_outline(
-    buffer: &mut [u32],
-    dimensions: (i32, i32),
-    rect: &Rect,
-    thickness: i32,
-    color: u32,
-) {
-    let x0 = rect.x;
-    let y0 = rect.y;
-    let x1 = x0 + rect.width;
-    let y1 = y0 + rect.height;
-
-    // Draw top edge
-    for y in y0..(y0 + thickness) {
-        for x in x0..x1 {
-            if x >= 0 && x < dimensions.0 && y >= 0 && y < dimensions.1 {
-                let idx = (y as usize) * dimensions.0 as usize + (x as usize);
-                buffer[idx] = color;
-            }
-        }
-    }
-
-    // Draw bottom edge
-    for y in (y1 - thickness)..y1 {
-        for x in x0..x1 {
-            if x >= 0 && x < dimensions.0 && y >= 0 && y < dimensions.1 {
-                let idx = (y as usize) * dimensions.0 as usize + (x as usize);
-                buffer[idx] = color;
-            }
-        }
-    }
-
-    // Draw left edge
-    for y in y0..y1 {
-        for x in x0..(x0 + thickness) {
-            if x >= 0 && x < dimensions.0 && y >= 0 && y < dimensions.1 {
-                let idx = (y as usize) * dimensions.0 as usize + (x as usize);
-                buffer[idx] = color;
-            }
-        }
-    }
-
-    // Draw right edge
-    for y in y0..y1 {
-        for x in (x1 - thickness)..x1 {
-            if x >= 0 && x < dimensions.0 && y >= 0 && y < dimensions.1 {
-                let idx = (y as usize) * dimensions.0 as usize + (x as usize);
-                buffer[idx] = color;
-            }
-        }
-    }
+    Ok(())
 }
 
-/// Draws a filled circle (dot) in the buffer at the specified position.
-fn draw_dot(buffer: &mut [u32], dimensions: (i32, i32), pos: (f64, f64), radius: i32, color: u32) {
-    let (width, height) = dimensions;
-    let (center_x, center_y) = pos;
-    let x0 = center_x as i32;
-    let y0 = center_y as i32;
+/// Draws a red dot (circle) on the input image at the specified point.
+fn draw_dot(
+    input_image: &mut opencv::core::Mat,
+    point: opencv::core::Point,
+) -> Result<(), opencv::Error> {
+    imgproc::circle(
+        input_image,
+        point,
+        5,
+        Scalar::new(0.0, 0.0, 255.0, 0.0),
+        -1,
+        8,
+        0,
+    )?;
 
-    for dy in -radius..=radius {
-        for dx in -radius..=radius {
-            if dx * dx + dy * dy <= radius * radius {
-                let x = x0 + dx;
-                let y = y0 + dy;
+    Ok(())
+}
 
-                if x >= 0 && x < width && y >= 0 && y < height {
-                    let idx = (y as usize) * width as usize + (x as usize);
-                    buffer[idx] = color;
-                }
-            }
-        }
+/// Draws a green bounding box on the input image.
+fn draw_bounding_box(
+    input_image: &mut opencv::core::Mat,
+    bbox: opencv::core::Rect,
+) -> Result<(), opencv::Error> {
+    imgproc::rectangle(
+        input_image,
+        bbox,
+        Scalar::new(0.0, 255.0, 0.0, 0.0),
+        2,
+        8,
+        0,
+    )?;
+
+    Ok(())
+}
+
+/// Converts an OpenCV Mat to a buffer compatible with minifb window display.
+fn mat_to_minifb_buffer(
+    mat: &Mat,
+    buffer: &mut [u32],
+    width: usize,
+    height: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure the Mat has the expected dimensions
+    if mat.rows() as usize != height || mat.cols() as usize != width {
+        return Err("Mat dimensions do not match window dimensions".into());
     }
+
+    // Iterate over each pixel and pack it into an RGBA u32
+    for (i, pixel) in mat.data_bytes()?.chunks(3).enumerate() {
+        let r = pixel[0] as u32;
+        let g = pixel[1] as u32;
+        let b = pixel[2] as u32;
+        buffer[i] = (255 << 24) | (r << 16) | (g << 8) | b; // RGBA format with alpha = 255
+    }
+
+    Ok(())
 }
 
 /// Renders turret telemetry data to a display buffer and updates the window.
 pub fn render_telemetry(
     window: &mut Window,
-    buffer: &mut [u32],
+    dev: &mut videoio::VideoCapture,
     telemetry: &TurretGunTelemetry,
     cam_conf: &Camera,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let mut frame = Mat::default();
     let dimensions = (telemetry.img_width, telemetry.img_height);
-
-    // Clear the buffer
-    buffer.fill(0);
-
-    // Draw bounding box outline with 5-pixel thickness
-    let thickness = 5;
-    let white = 0xFFFFFF;
-    draw_box_outline(
-        buffer,
-        dimensions,
-        &telemetry.bounding_box,
-        thickness,
-        white,
-    );
-
-    // Draw the target location as a dot with a radius of 5 pixels
     let pos = get_target_position(telemetry.azimuth, telemetry.elevation, dimensions, cam_conf);
-    let radius = 5;
-    let red = 0xFF0000;
-    draw_dot(buffer, dimensions, pos, radius, red);
+    let text_pos = opencv::core::Point::new(10, 20);
 
-    window.update_with_buffer(buffer, dimensions.0 as usize, dimensions.1 as usize)?;
+    if dev.read(&mut frame)? && !frame.empty() {
+        // Detect humans in the frame
+        // Calculate and display the azimuth and elevation angles
+        draw_text(
+            &mut frame,
+            &format!(
+                "az: {:.2} el: {:.2} firing: {}",
+                telemetry.azimuth, telemetry.elevation, telemetry.has_fired
+            ),
+            text_pos,
+        )?;
+
+        // Draw a dot at the target position
+        draw_dot(
+            &mut frame,
+            opencv::core::Point::new(pos.0 as i32, pos.1 as i32),
+        )?;
+
+        // Draw a bounding box around the detected human
+        draw_bounding_box(
+            &mut frame,
+            opencv::core::Rect::new(
+                telemetry.bounding_box.x,
+                telemetry.bounding_box.y,
+                telemetry.bounding_box.width,
+                telemetry.bounding_box.height,
+            ),
+        )?;
+
+        // Convert to RGB format (OpenCV uses BGR by default)
+        let mut rgb_frame = Mat::default();
+        imgproc::cvt_color(&frame, &mut rgb_frame, imgproc::COLOR_BGR2RGB, 0)?;
+
+        // Convert the Mat to a buffer for minifb
+        let mut buffer: Vec<u32> = vec![0; (frame.cols() * frame.rows()) as usize];
+        mat_to_minifb_buffer(
+            &rgb_frame,
+            &mut buffer,
+            frame.cols() as usize,
+            frame.rows() as usize,
+        )?;
+
+        // Update the window with the buffer
+        window.update_with_buffer(&buffer, frame.cols() as usize, frame.rows() as usize)?;
+    }
 
     Ok(())
 }

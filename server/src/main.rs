@@ -89,9 +89,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Spawn a signal listener task to handle SIGTERM or SIGINT
     let signal_task = task::spawn(shoot::signal_listener(shutdown_tx));
 
-    // Wait for both tasks to complete
+    // Wait for the control loop to exit
     control_task.await;
-    signal_task.await;
+
+    // If the control loop exited before we received a signal, cancel the signal task
+    let signal_handle = signal_task.cancel();
+    signal_handle.await;
 
     info!("Control loop has exited. tgs shutting down.");
     Ok(())

@@ -1,8 +1,6 @@
 [workspace]
 members = [
   "shared",
-  "tgun", 
-  "tlm",
   "tgc",
   "tgs",
 ]

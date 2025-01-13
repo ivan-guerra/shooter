@@ -18,7 +18,7 @@ port = 8000
 # https://github.com/gen2brain/cam2ip
 stream_url = "http://10.0.0.44:56000/mjpeg"
 # Number of frames per second
-frame_rate = 10
+frame_rate = 5
 # Horizontal field of view angle in degrees
 horizontal_fov = 89.0
 # Vertical field of view angle in degrees

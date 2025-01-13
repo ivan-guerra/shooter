@@ -131,99 +131,97 @@ impl ShooterParams {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::fs;
-//     use testdir::testdir;
-//
-//     #[test]
-//     fn yolo_default_values() {
-//         let default_yolo = Yolo::default();
-//         assert_eq!(default_yolo.input_size, 416);
-//         assert_eq!(default_yolo.scale_factor, 1.0 / 255.0);
-//         assert_eq!(default_yolo.confidence_threshold, 0.5);
-//         assert_eq!(default_yolo.nms_confidence_threshold, 0.5);
-//         assert_eq!(default_yolo.nms_threshold, 0.45);
-//         assert_eq!(default_yolo.score_threshold, 0.5);
-//         assert_eq!(default_yolo.top_k, 0);
-//     }
-//
-//     #[test]
-//     fn shooter_config_valid_load() -> Result<(), Box<dyn std::error::Error>> {
-//         let dir = testdir!();
-//         let config_path = dir.join("config.toml");
-//
-//         let config_content = r#"
-//             [client]
-//             server_addr = "127.0.0.1:8000"
-//             [camera]
-//             stream_url = "rtsp://example.com/stream"
-//             frame_rate = 10
-//             horizontal_fov = 90.0
-//             vertical_fov = 60.0
-//             azimuth_offset = 0.0
-//             elevation_offset = -15.0
-//
-//             [yolo]
-//             model_cfg = "models/custom.cfg"
-//             model_weights = "models/custom.weights"
-//             input_size = 416
-//             scale_factor = 0.00392156862745098
-//             confidence_threshold = 0.5
-//             nms_confidence_threshold = 0.5
-//             nms_threshold = 0.45
-//             score_threshold = 0.5
-//             top_k = 100
-//
-//             [telemetry]
-//             send_addr = "192.168.1.16:5000"
-//             recv_addr = "192.168.1.128:5000"
-//         "#;
-//
-//         fs::write(&config_path, config_content)?;
-//
-//         let config = ShooterParams::new(&config_path)?;
-//
-//         assert_eq!(config.client.server_addr.as_str(), "127.0.0.1:8000");
-//         assert_eq!(
-//             config.camera.stream_url.as_str(),
-//             "rtsp://example.com/stream"
-//         );
-//         assert_eq!(config.camera.frame_rate, 10);
-//         assert_eq!(config.camera.horizontal_fov, 90.0);
-//         assert_eq!(config.camera.vertical_fov, 60.0);
-//         assert_eq!(config.camera.azimuth_offset, 0.0);
-//         assert_eq!(config.camera.elevation_offset, -15.0);
-//
-//         assert_eq!(config.yolo.input_size, 416);
-//         assert_eq!(config.yolo.scale_factor, 0.00392156862745098);
-//         assert_eq!(config.yolo.confidence_threshold, 0.5);
-//         assert_eq!(config.yolo.top_k, 100);
-//
-//         assert_eq!(config.telemetry.send_addr, "192.168.1.16:5000");
-//         assert_eq!(config.telemetry.recv_addr, "192.168.1.128:5000");
-//
-//         Ok(())
-//     }
-//
-//     #[test]
-//     fn shooter_config_invalid_toml() {
-//         let dir = testdir!();
-//         let config_path = dir.join("invalid.toml");
-//
-//         fs::write(&config_path, "invalid toml content").unwrap();
-//
-//         let result = ShooterParams::new(&config_path);
-//         assert!(result.is_err());
-//     }
-//
-//     #[test]
-//     fn shooter_config_nonexistent_file() {
-//         let dir = testdir!();
-//         let config_path = dir.join("nonexistent.toml");
-//
-//         let result = ShooterParams::new(&config_path);
-//         assert!(result.is_err());
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use testdir::testdir;
+
+    #[test]
+    fn yolo_default_values() {
+        let default_yolo = Yolo::default();
+        assert_eq!(default_yolo.input_size, 416);
+        assert_eq!(default_yolo.scale_factor, 1.0 / 255.0);
+        assert_eq!(default_yolo.confidence_threshold, 0.5);
+        assert_eq!(default_yolo.nms_confidence_threshold, 0.5);
+        assert_eq!(default_yolo.nms_threshold, 0.45);
+        assert_eq!(default_yolo.score_threshold, 0.5);
+        assert_eq!(default_yolo.top_k, 0);
+    }
+
+    #[test]
+    fn shooter_config_valid_load() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = testdir!();
+        let config_path = dir.join("config.toml");
+
+        let config_content = r#"
+            [client]
+            server_addr = "127.0.0.1:8000"
+            
+            [server]
+            port = 8000
+
+            [server.camera]
+            stream_url = "rtsp://example.com/stream"
+            frame_rate = 10
+            horizontal_fov = 90.0
+            vertical_fov = 60.0
+            azimuth_offset = 0.0
+            elevation_offset = -15.0
+
+            [server.yolo]
+            model_cfg = "models/custom.cfg"
+            model_weights = "models/custom.weights"
+            input_size = 416
+            scale_factor = 0.00392156862745098
+            confidence_threshold = 0.5
+            nms_confidence_threshold = 0.5
+            nms_threshold = 0.45
+            score_threshold = 0.5
+            top_k = 100
+        "#;
+
+        fs::write(&config_path, config_content)?;
+
+        let config = ShooterParams::new(&config_path)?;
+
+        assert_eq!(config.client.server_addr.as_str(), "127.0.0.1:8000");
+        assert_eq!(config.server.port, 8000);
+        assert_eq!(
+            config.server.camera.stream_url.as_str(),
+            "rtsp://example.com/stream"
+        );
+        assert_eq!(config.server.camera.frame_rate, 10);
+        assert_eq!(config.server.camera.horizontal_fov, 90.0);
+        assert_eq!(config.server.camera.vertical_fov, 60.0);
+        assert_eq!(config.server.camera.azimuth_offset, 0.0);
+        assert_eq!(config.server.camera.elevation_offset, -15.0);
+
+        assert_eq!(config.server.yolo.input_size, 416);
+        assert_eq!(config.server.yolo.scale_factor, 0.00392156862745098);
+        assert_eq!(config.server.yolo.confidence_threshold, 0.5);
+        assert_eq!(config.server.yolo.top_k, 100);
+
+        Ok(())
+    }
+
+    #[test]
+    fn shooter_config_invalid_toml() {
+        let dir = testdir!();
+        let config_path = dir.join("invalid.toml");
+
+        fs::write(&config_path, "invalid toml content").unwrap();
+
+        let result = ShooterParams::new(&config_path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn shooter_config_nonexistent_file() {
+        let dir = testdir!();
+        let config_path = dir.join("nonexistent.toml");
+
+        let result = ShooterParams::new(&config_path);
+        assert!(result.is_err());
+    }
+}

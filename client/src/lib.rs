@@ -60,8 +60,9 @@ pub async fn control_loop(shutdown_rx: channel::Receiver<()>, mut stream: std::n
         }
 
         // Read a command response from the server
-        if let Err(e) = read_cmd(&mut stream).await {
-            error!("Failed to read command: {}", e);
+        let cmd = read_cmd(&mut stream).await;
+        if cmd.is_err() {
+            error!("Failed to read command response: {:?}", cmd.err());
             break;
         }
 

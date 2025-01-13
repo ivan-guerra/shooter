@@ -15,7 +15,7 @@ use async_std::{channel, task};
 use futures::stream::StreamExt;
 use log::{error, info, warn};
 use opencv::{prelude::*, videoio};
-use shared::{Rect, ShooterConfig, TurretGunTelemetry};
+use shared::{Rect, ShooterParams, TurretGunTelemetry};
 use std::net::UdpSocket;
 use std::time::{Duration, Instant};
 
@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 fn send_telemetry(
     tlm: TurretGunTelemetry,
     tlm_socket: &UdpSocket,
-    configs: &ShooterConfig,
+    configs: &ShooterParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let buf = bincode::serialize(&tlm)?;
     tlm_socket.send_to(&buf, configs.telemetry.recv_addr.as_str())?;
@@ -36,7 +36,7 @@ fn send_telemetry(
 /// Sends telemetry data for each detected target. Loop continues until shutdown signal is received.
 pub async fn control_loop(
     shutdown_rx: channel::Receiver<()>,
-    config: ShooterConfig,
+    config: ShooterParams,
     mut dev: videoio::VideoCapture,
     mut model: DarknetModel,
     tlm_socket: UdpSocket,

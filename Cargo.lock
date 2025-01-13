@@ -2061,6 +2061,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "tgs"
+version = "0.1.0"
+dependencies = [
+ "async-signal",
+ "async-std",
+ "bincode",
+ "clap",
+ "futures",
+ "image",
+ "log",
+ "opencv",
+ "shared",
+ "simplelog",
+ "testdir",
+ "url",
+]
+
+[[package]]
 name = "tgun"
 version = "0.1.0"
 dependencies = [

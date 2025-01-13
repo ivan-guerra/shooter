@@ -19,7 +19,7 @@
 use clap::Parser;
 use minifb::{Key, Window, WindowOptions};
 use opencv::{prelude::*, videoio};
-use shared::{ShooterConfig, TurretGunTelemetry};
+use shared::{ShooterParams, TurretGunTelemetry};
 use std::net::UdpSocket;
 
 #[doc(hidden)]
@@ -47,7 +47,7 @@ struct Args {
 
 #[doc(hidden)]
 fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let config = ShooterConfig::new(&args.config)?;
+    let config = ShooterParams::new(&args.config)?;
 
     let socket = UdpSocket::bind(config.telemetry.recv_addr)?;
     socket.set_nonblocking(true)?;

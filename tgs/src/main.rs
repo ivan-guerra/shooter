@@ -1,16 +1,15 @@
-//! Turret Gun Control System
+//! Main entry point for the Turret Guidance System (TGS) server.
 //!
-//! This module serves as the entry point for the `tgun` application, which provides
-//! real-time target detection and tracking capabilities using computer vision.
+//! This module initializes and orchestrates the core components of the turret guidance system:
+//! - Command line argument parsing
+//! - Logging configuration
+//! - Video capture device initialization
+//! - YOLO model loading for object detection
+//! - TCP server setup for client communication
+//! - Async runtime configuration and task management
 //!
-//! The system:
-//! - Processes video input from a configured source
-//! - Performs object detection using a YOLO darknet model
-//! - Handles telemetry data through UDP communication
-//! - Provides graceful shutdown handling via signal interrupts
-//!
-//! The application is configured via a configuration file specified as a command-line
-//! argument and optionally supports custom log file paths.
+//! The server handles incoming connections from turret control clients and manages
+//! the main control loop for target detection and tracking.
 use crate::detection::DarknetModel;
 use async_std::{channel, task};
 use clap::Parser;
@@ -19,7 +18,7 @@ use opencv::{prelude::*, videoio};
 use shared::ShooterParams;
 use simplelog::ConfigBuilder;
 use simplelog::*;
-use std::net::UdpSocket;
+use std::net::TcpListener;
 
 mod detection;
 mod shoot;
@@ -50,41 +49,42 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         WriteLogger::new(
             LevelFilter::Debug,
             ConfigBuilder::new().set_time_format_rfc2822().build(),
-            std::fs::File::create(
-                args.log_path
-                    .unwrap_or(std::path::PathBuf::from("tgun.log")),
-            )?,
+            std::fs::File::create(args.log_path.unwrap_or(std::path::PathBuf::from("tgs.log")))?,
         ),
     ])
     .unwrap_or_else(|e| panic!("Failed to initialize logger: {}", e));
 
-    let configs = ShooterParams::new(&args.config)?;
+    let conf = ShooterParams::new(&args.config)?;
 
     let dev =
-        videoio::VideoCapture::from_file(configs.camera.stream_url.as_str(), videoio::CAP_ANY)
+        videoio::VideoCapture::from_file(conf.server.camera.stream_url.as_str(), videoio::CAP_ANY)
             .map_err(|_| "Failed to create VideoCapture")?;
     if !dev.is_opened()? {
         return Err("Video capture device is not opened".into());
     }
     info!("Opened video capture device");
 
-    let tlm_socket = UdpSocket::bind(configs.telemetry.send_addr.as_str())?;
-    info!("Opened telemetry socket");
-
-    let model = DarknetModel::new(&configs.yolo)?;
+    let model = DarknetModel::new(&conf.server.yolo)?;
     info!("Loaded YOLO model");
+
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", conf.server.port))?;
+    info!("Bound server to port {}", conf.server.port);
+
+    info!("Waiting for incoming connection from client...");
+    let stream = match listener.incoming().next() {
+        Some(Ok(stream)) => {
+            stream.set_nonblocking(true)?;
+            stream
+        }
+        _ => return Err("Failed to accept incoming connection".into()),
+    };
+    info!("Accepted connection from client");
 
     // Create a channel for signaling shutdown
     let (shutdown_tx, shutdown_rx) = channel::bounded(1);
 
     // Spawn the control loop in a separate task
-    let control_task = task::spawn(shoot::control_loop(
-        shutdown_rx,
-        configs,
-        dev,
-        model,
-        tlm_socket,
-    ));
+    let control_task = task::spawn(shoot::control_loop(shutdown_rx, conf, dev, model, stream));
 
     // Spawn a signal listener task to handle SIGTERM or SIGINT
     let signal_task = task::spawn(shoot::signal_listener(shutdown_tx));
@@ -93,7 +93,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     control_task.await;
     signal_task.await;
 
-    info!("Control loop has exited. tgun shutting down.");
+    info!("Control loop has exited. tgs shutting down.");
     Ok(())
 }
 

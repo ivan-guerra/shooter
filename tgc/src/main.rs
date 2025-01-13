@@ -15,7 +15,7 @@
 use async_std::{channel, task};
 use clap::Parser;
 use log::{error, info};
-use shared::ShooterConfig;
+use shared::ShooterParams;
 use simplelog::ConfigBuilder;
 use simplelog::*;
 use std::net::TcpStream;
@@ -50,7 +50,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     ])
     .unwrap_or_else(|e| panic!("Failed to initialize logger: {}", e));
 
-    let conf = ShooterConfig::new(&args.config)?;
+    let conf = ShooterParams::new(&args.config)?;
     info!("Loaded configuration file");
 
     let stream = TcpStream::connect(conf.client.server_addr)?;

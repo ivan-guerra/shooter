@@ -1,13 +1,22 @@
+############################################
+# Client Configuration 
+############################################
 [client]
-server_addr = "127.0.0.1:8000"
+server_addr = "10.0.0.44:8000"
+
+############################################
+# Server Configuration 
+############################################
+[server]
+port = 8000
 
 # Camera configuration settings
 # These settings are for NEXIGO N60 Webcam with a factor configuration
 # https://drive.google.com/file/d/10IgEGNXSWZNjBNJv240IYPmdfYQsQpE6/view
-[camera]
+[server.camera]
 # HTTP stream URL for MJPEG video feed
 # https://github.com/gen2brain/cam2ip
-stream_url = "http://10.0.0.247:56000/mjpeg"
+stream_url = "http://10.0.0.44:56000/mjpeg"
 # Number of frames per second
 frame_rate = 10
 # Horizontal field of view angle in degrees
@@ -20,7 +29,7 @@ azimuth_offset = 0.0
 elevation_offset = 0.0
 
 # YOLO object detection model configuration
-[yolo]
+[server.yolo]
 # Path to the YOLO model configuration file
 model_cfg = "models/yolov4-tiny.cfg"
 # Path to the pre-trained YOLO model weights file
@@ -39,9 +48,3 @@ nms_threshold = 0.4
 score_threshold = 1.0
 # Maximum number of detections to keep (0 = no limit)
 top_k = 1
-
-[telemetry]
-# Address to which UDP telemetry packets are sent
-send_addr = "10.0.0.247:8000"
-# Address from which UDP telemetry packets are received
-recv_addr = "10.0.0.44:8000"

@@ -4,5 +4,6 @@ members = [
   "tgun", 
   "tlm",
   "tgc",
+  "tgs",
 ]
 resolver = "2"

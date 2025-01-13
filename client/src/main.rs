@@ -60,10 +60,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (shutdown_tx, shutdown_rx) = channel::bounded(1);
 
     // Spawn the control loop in a separate task
-    let control_task = task::spawn(tgc::control_loop(shutdown_rx, stream));
+    let control_task = task::spawn(client::control_loop(shutdown_rx, stream));
 
     // Spawn a signal listener task to handle SIGTERM or SIGINT
-    let signal_task = task::spawn(tgc::signal_listener(shutdown_tx));
+    let signal_task = task::spawn(client::signal_listener(shutdown_tx));
 
     // Wait for both tasks to complete
     control_task.await;

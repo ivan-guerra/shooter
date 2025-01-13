@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "shared",
-  "tgc",
-  "tgs",
+  "client",
+  "server",
 ]
 resolver = "2"

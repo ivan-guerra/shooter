@@ -1,9 +1,13 @@
 [package]
-name = "tgc"
+name = "client"
 version = "0.1.0"
 edition = "2021"
 description = "Turret gun client"
 license = "Unlicense"
+
+[[bin]]
+name = "tgc"
+path = "src/main.rs"
 
 [dependencies]
 # Shared telemetry and configuration code

@@ -1,9 +1,13 @@
 [package]
-name = "tgs"
+name = "server"
 version = "0.1.0"
 edition = "2021"
 description = "Turret gun server"
 license = "Unlicense"
+
+[[bin]]
+name = "tgs"
+path = "src/main.rs"
 
 [dependencies]
 # Shared telemetry and configuration code

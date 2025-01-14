@@ -1,40 +1,30 @@
 # shooter
 
 A Nerf turret gun that automatically detects, tracks, and fires at humans.
-**This is a work in progress**. Currently, we are able to render a live video
-feed demonstrating the software can recognize a human. The software generates
-azimuth and elevation angles to track their movement within the camera's field
-of view. Below is a recording of the turret gun software in action:
+**This is a work in progress**. Currently, we're able to detect humans and
+generate commands for aiming the gun at a rate of 5-10 FPS.
 
-https://github.com/user-attachments/assets/5b448016-83db-4d57-be2f-94c9ee887f96
-
-When a person is detected, a green bounding box is drawn around them. The red
-dot represents the center of the bounding box and is where the turret gun will
-aim. At the top of the screen, you can see live azimuth and elevation angles.
-These angles will be converted to motor movements to aim the turret at the
-person.
-
-The `shooter` project includes two applications. The first application is called
-`tgun` (turret gun). `tgun` runs onboard the Raspberry Pi and is responsible for
-controlling the turret gun. The second application is called `tlm` (telemetry)
-and is mainly useful for debugging. `tlm` runs on a separate computer and reads
-telemetry data sent by `tgun` over the network. `tlm` renders a live video feed
-with overlays like the one shown in the demo video above.
+`shooter` is split into a client and server. The client, `tgc` (turret gun
+client), runs onboard the Rapsberry Pi. The client requests the latest command
+from the server and then executes it by moving the motors/firing the gun. The
+server, `tgs` (turret gun server), runs on a more powerful machine and processes
+the image stream generating commands that are sent to the client only upon
+request. The client/server architecture lets us keep the software onboard the Pi
+lean while giving us the ability to generate detections at a high rate on a
+separate, more powerful machine.
 
 ### Human Detection
 
 A pretrained [You Only Look Once (YOLO)][1] model is used to detect humans.
 `shooter` can be configured to use any YOLO model. Included in this project
 under [`models/`](models/) is the [yolov4-tiny][2] model. We went with
-yolo4-tiny because it's lightweight enough to run on a Raspberry Pi like the one
-installed on our turret gun.
+yolo4-tiny because it's accurate enough to meet our goal and we're able to
+perform inference at 5-10 FPS on modest hardware.
 
 ### Configuration
 
-`shooter` requires a configuration file to run . You can checkout an example
-config file under [`configs/test.toml`](configs/test.toml). The config file
-contains sections for configuring camera, detection model, and telemetry
-parameters.
+`shooter` requires a configuration file to run. You can checkout an example
+config file under [`configs/test.toml`](configs/test.toml).
 
 ### Getting a Video Stream
 
@@ -43,48 +33,51 @@ currently are using a [Nexigo N60 webcam][5] and the [cam2ip][3] software to
 produce a video stream. You can [download][4] a cam2ip release binary from
 GitHub.
 
-### Running `tgun`
+### Running `tgc`
 
-1. Cross compile the `tgun` binary for the Raspberry Pi. See [`docker/README.md`](docker/README.md) for instructions.
+1. Cross compile the `tgc` binary for the Raspberry Pi. See
+   [`docker/README.md`](docker/README.md) for instructions.
 
-2. Copy the `tgun` binary, configs, and models to the Raspberry Pi:
+2. Copy the `tgc` binary, configs, and models to the Raspberry Pi:
 
 ```bash
-scp target/aarch64-unknown-linux-gnu/release/tgun ieg@10.0.0.247:/home/ieg
-scp -r configs/ ieg@10.0.0.247:/home/ieg
-scp -r models/ ieg@10.0.0.247:/home/ieg
+scp target/aarch64-unknown-linux-gnu/release/tgc shooter@rpi:/home/shooter
+scp -r configs/ shooter@rpi:/home/shooter
+scp -r models/ shooter@rpi:/home/shooter
 ```
 
 3. Plug the webcam into the Raspberry Pi.
 
 4. Run `cam2ip` to produce a video stream.
 
-5. Edit the configuration file and adjust parameters to match your network and
-   camera.
+5. Edit the `client` section of the configuration file as needed.
 
-6. Run `tgun` supplying it a configuration file:
+6. Run `tgc` supplying it a configuration file:
 
 ```bash
-tgun test.toml
+tgc configs/test.toml
 ```
 
-### Running `tlm`
+### Running `tgs`
 
-1. Build the `tlm` binary:
+1. Install the following dependencies:
 
 ```bash
-cargo build --release --bin tlm
+sudo apt-get install -y build-essential clang libclang-dev libopencv-dev
 ```
 
-2. Edit the configuration file as necessary. Note, usually the same
-   configuration file given to `tgun` can be used with `tlm` without
-   modification.
-
-3. Run `tlm` supplying it a configuration file and the width/height of the
-   video stream frames:
+2. Build the `tgs` binary:
 
 ```bash
-tlm --width 640 --height 480 test.toml
+cargo build --release --bin tgs
+```
+
+3. Edit the `server` section of the configuration file as needed.
+
+4. Run `tgs` supplying it a configuration file:
+
+```bash
+tgs configs/test.toml
 ```
 
 [1]: https://github.com/AlexeyAB/darknet

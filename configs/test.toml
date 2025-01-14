@@ -2,12 +2,14 @@
 # Client Configuration 
 ############################################
 [client]
+# Address of the remote command server
 server_addr = "10.0.0.44:8000"
 
 ############################################
 # Server Configuration 
 ############################################
 [server]
+# Port at which the server will be listening for client connections
 port = 8000
 
 # Camera configuration settings

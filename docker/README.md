@@ -37,6 +37,6 @@ docker run --rm -v ./:/src rpi-xcompile
 ```
 
 Once the build finishes, the binary will be located under
-`target/aarch64-unknown-linux-gnu/release/shooter`.
+`target/aarch64-unknown-linux-gnu/release/[tgs|tgc]`.
 
 [1]: https://github.com/twistedfall/opencv-rust/blob/master/tools/docker/rpi-xcompile.Dockerfile
